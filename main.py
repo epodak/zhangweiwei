@@ -39,33 +39,43 @@ def process_videos_in_folder(videos_folder, features_file, frames_output, subtit
     # 确保输出目录存在
     os.makedirs(frames_output, exist_ok=True)
     os.makedirs(subtitle_output, exist_ok=True)
+    
+    # 用于跟踪已处理的视频
+    processed_videos = set()
+    
+    while True:
+        # 获取所有视频文件
+        video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
+        video_files = [f for f in os.listdir(videos_folder)
+                      if os.path.isfile(os.path.join(videos_folder, f))
+                      and f.lower().endswith(video_extensions)
+                      and f not in processed_videos]  # 排除已处理的视频
 
-    # 获取所有视频文件
-    video_extensions = ('.mp4', '.avi', '.mkv', '.mov')
-    video_files = [f for f in os.listdir(videos_folder)
-                   if os.path.isfile(os.path.join(videos_folder, f))
-                   and f.lower().endswith(video_extensions)]
+        if not video_files:
+            print("\nAll videos processed successfully!")
+            break  # 如果没有新视频，直接退出
 
-    print(f"Found {len(video_files)} videos to process")
+        print(f"Found {len(video_files)} new videos to process")
 
-    # 处理每个视频
-    for i, video_file in enumerate(video_files, 1):
-        video_path = os.path.join(videos_folder, video_file)
-        print(f"\nProcessing video {i}/{len(video_files)}: {video_file}")
+        # 处理每个新视频
+        for i, video_file in enumerate(video_files, 1):
+            video_path = os.path.join(videos_folder, video_file)
+            print(f"\nProcessing video {i}/{len(video_files)}: {video_file}")
 
-        try:
-            # 处理视频
-            process_video(video_path, features_file, frames_output, subtitle_output)
+            try:
+                # 处理视频
+                process_video(video_path, features_file, frames_output, subtitle_output)
+                
+                # 添加到已处理列表
+                processed_videos.add(video_file)
+                
+                # 清理帧文件
+                clean_frames_folder(frames_output)
+                print(f"Cleaned frames for {video_file}")
 
-            # 清理帧文件
-            clean_frames_folder(frames_output)
-            print(f"Cleaned frames for {video_file}")
-
-        except Exception as e:
-            print(f"Error processing {video_file}: {e}")
-            continue
-
-    print("\nAll videos processed successfully!")
+            except Exception as e:
+                print(f"Error processing {video_file}: {e}")
+                continue
 
 
 if __name__ == "__main__":
