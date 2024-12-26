@@ -1,0 +1,370 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fdf0f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.search-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 680px;
+    background: transparent;
+    z-index: 100;
+}
+
+/* 只有在有搜索结果时才应用这些样式 */
+.search-container.searched {
+    position: fixed;
+    top: 0;
+    transform: translate(-50%, 0);
+    background: #fdf0f0;
+    box-shadow: 0 15px 15px #fdf0f0;
+}
+
+/* 搜索输入框样式 */
+#searchInput {
+    width: 500px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 25px;
+    background-color: rgba(188, 143, 143, 0.2);
+    font-size: 16px;
+    outline: none;
+    transition: background-color 0.3s ease;
+}
+
+#searchInput:not(:placeholder-shown) {
+    background-color: rgba(188, 143, 143, 0.4);
+}
+
+/* 最小比率输入框样式 */
+#minRatio {
+    width: 60px;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 25px;
+    background-color: rgba(188, 143, 143, 0.2);
+    text-align: center;
+    font-size: 16px;
+    outline: none;
+}
+
+/* 搜索按钮样式 */
+.search-container button {
+    width: 80px;
+    padding: 12px 0;
+    border: none;
+    border-radius: 25px;
+    background-color: rgba(188, 143, 143, 0.2);
+    color: #000;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* 结果容器和结果项样式 */
+#results {
+    width: 95%;
+    max-width: 680px;
+    margin: 0 auto;
+    opacity: 0; /* 初始隐藏 */
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.result { 
+    margin: 10px 0; 
+    padding: 15px;
+    border: none;
+    border-radius: 15px;
+    background-color: rgba(188, 143, 143, 0.2);
+    width: 100%;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.result.show {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* 搜索容器响应式布局 */
+@media screen and (max-width: 720px) {
+    .search-container, #results, .result, .no-results {
+        width: 95%;
+        max-width: 680px;
+        margin: 0 auto;
+    }
+
+    .search-container {
+        padding: 20px 0;
+    }
+
+    .result {
+        padding: 15px;
+        margin: 10px 0;
+    }
+}
+
+/* 更小屏幕的响应式布局 */
+@media screen and (max-width: 480px) {
+    .search-container, #results, .result, .no-results {
+        width: 95%;
+    }
+}
+
+/* 分页样式 */
+.pagination { 
+    margin-top: 20px; 
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+/* 分页按钮样式 */
+.page-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(188, 143, 143, 0.2);
+    color: #000;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-btn:hover {
+    background-color: rgba(188, 143, 143, 0.3);
+}
+
+/* 页码信息样式 */
+.page-info {
+    min-width: 80px;
+    padding: 8px 20px;
+    background-color: rgba(188, 143, 143, 0.2);
+    border-radius: 20px;
+    font-size: 16px;
+}
+
+/* 加载状态样式 */
+.loading { 
+    display: none; 
+    margin-left: 10px;
+    color: rgba(188, 143, 143, 0.8);
+}
+
+/* 输入框占位符文本颜色 */
+::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+}
+
+/* 移除输入框的箭头按钮 */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 自定义滚动条样式 */
+/* Webkit 浏览器 (Chrome, Safari, newer versions of Opera) */
+::-webkit-scrollbar {
+    width: 8px; /* 滚动条宽度 */
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; /* 移除轨道背景 */
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(188, 143, 143, 0.8); /* 滑块颜色 */
+    border-radius: 4px; /* 滑块圆角 */
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin; /* 'auto' or 'thin' */
+    scrollbar-color: rgba(188, 143, 143, 0.8) transparent; /* 滑块颜色 轨道颜色 */
+}
+
+/* 隐藏 IE 的滚动条 */
+/* 注意：IE 的自定义滚动条支持有限 */
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+    * {
+        -ms-overflow-style: none;
+    }
+}
+
+/* 加载界面容器 */
+.loading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: #fdf0f0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+/* 进度条容器 */
+.progress-bar {
+    width: 300px;
+    height: 10px;
+    background-color: rgba(188, 143, 143, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+/* 进度条 */
+.progress {
+    width: 0%;
+    height: 100%;
+    background-color: rgba(188, 143, 143, 0.8);
+    transition: width 0.3s ease;
+}
+
+/* 进度文本 */
+.progress-text {
+    color: rgba(188, 143, 143, 0.8);
+    font-size: 16px;
+}
+
+/* 隐藏主界面 */
+.main-content {
+    display: none;
+}
+
+.main-content.show {
+    display: block;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: #333;
+    background-color: rgba(188, 143, 143, 0.2);
+    border-radius: 25px;
+    margin: 20px auto;
+    width: 680px;
+    box-sizing: border-box;
+}
+
+/* 响应式布局适配 */
+@media screen and (max-width: 720px) {
+    .no-results {
+        width: 95%;
+        max-width: 680px;
+    }
+}
+
+.no-results p {
+    margin: 10px 0;
+    color: inherit;
+}
+
+.no-results p:first-child {
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+
+.no-results ul {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    display: inline-block;
+}
+
+.no-results ul li {
+    margin: 8px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.no-results ul li:before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: inherit;
+}
+
+.main-content {
+    min-height: 100vh;
+    padding-top: 0;
+}
+
+.main-content.has-results {
+    padding-top: 80px;
+}
+
+.result.exact-match {
+    border-left: 4px solid #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* 搜索容器和结果的基础样式 */
+.search-container, #results, .result, .no-results {
+    width: 680px;
+    max-width: 680px;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.result { 
+    margin: 10px 0; 
+    padding: 15px;
+    border: none;
+    border-radius: 15px;
+    background-color: rgba(188, 143, 143, 0.2);
+    width: 100%;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+/* 响应式布局 */
+@media screen and (max-width: 720px) {
+    .search-container, #results, .result, .no-results {
+        width: 95%;
+        max-width: 680px;
+        margin: 0 auto;
+    }
+
+    .search-container {
+        padding: 20px 0;
+    }
+
+    .result {
+        padding: 15px;
+        margin: 10px 0;
+    }
+}
+
+/* 更小屏幕的响应式布局 */
+@media screen and (max-width: 480px) {
+    .search-container, #results, .result, .no-results {
+        width: 95%;
+    }
+}

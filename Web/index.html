@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>字幕搜索</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="loading-container" id="loadingContainer">
+        <div class="progress-bar">
+            <div class="progress" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText">正在加载数据库...</div>
+    </div>
+    <div class="main-content" id="mainContent">
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="输入搜索关键词">
+            <input type="number" id="minRatio" value="98" min="0" max="100" title="最小匹配率">
+            <button onclick="search(1)">搜索</button>
+            <span id="loading" class="loading">搜索中...</span>
+        </div>
+        <div id="results"></div>
+        <div id="pagination" class="pagination">
+            <button class="page-btn prev-btn">&lt;</button>
+            <div class="page-info">2/3</div>
+            <button class="page-btn next-btn">&gt;</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
