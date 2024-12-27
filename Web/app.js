@@ -169,6 +169,7 @@ async function search(page) {
             
             if (query.includes(' ')) {
                 // 严格搜索模式 - 完全匹配的结果
+                const keywords = query.split(' ').filter(k => k);
                 matchedResults = rows
                     .filter(row => keywords.every(keyword => row[3].includes(keyword)))
                     .map(row => ({
@@ -177,7 +178,7 @@ async function search(page) {
                         similarity: row[2],
                         text: row[3],
                         match_ratio: 100,
-                        exact_match: row[3].includes(query) // 添加完全匹配标志
+                        exact_match: row[3].includes(query)
                     }));
             } else {
                 // 模糊搜索模式
