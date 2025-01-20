@@ -161,6 +161,10 @@ async function search(page) {
     currentPage = page;
 
     try {
+        // 加载链接数据
+        const linksResponse = await fetch('links.json');
+        const episodeLinks = await linksResponse.json();
+        
         let matchedResults = [];
         const results = db.exec('SELECT episode_title, timestamp, similarity, text FROM subtitles');
         
@@ -220,14 +224,46 @@ async function search(page) {
             searchContainer.classList.add('searched');
             mainContent.classList.add('has-results');
             
-            resultsDiv.innerHTML = pageResults.map(result => `
-                <div class="result ${result.exact_match ? 'exact-match' : ''}">
-                    <div>剧集：${result.episode_title}</div>
-                    <div>时间戳：${result.timestamp}</div>
-                    <div>文本：${result.text}</div>
-                    <div>匹配率：${result.match_ratio.toFixed(1)}%${result.exact_match ? ' (完全匹配)' : ''}</div>
-                </div>
-            `).join('');
+            resultsDiv.innerHTML = pageResults.map(result => {
+                // 提取集数
+                const episodeMatch = result.episode_title.match(/P(\d+)/);
+                const episodeNumber = episodeMatch ? episodeMatch[1].replace(/^0+/, '') : null;
+                
+                // 转换时间戳为秒数
+                const timeToSeconds = (timestamp) => {
+                    // 匹配分钟和秒数，支持多种格式：5m30s、05:30、5:30 等
+                    const timeMatch = timestamp.match(/(?:(\d+)[m:])?(\d+)s?/);
+                    if (timeMatch) {
+                        const minutes = parseInt(timeMatch[1] || '0');
+                        const seconds = parseInt(timeMatch[2] || '0');
+                        return minutes * 60 + seconds;
+                    }
+                    return 0;
+                };
+
+                // 在 links 对象中查找对应的链接
+                let episodeLink = '#';
+                if (episodeNumber) {
+                    for (const [link, num] of Object.entries(episodeLinks)) {
+                        if (num === episodeNumber) {
+                            const totalSeconds = timeToSeconds(result.timestamp);
+                            episodeLink = `${link}?share_source=copy_web&t=${totalSeconds}`;
+                            break;
+                        }
+                    }
+                }
+                
+                return `
+                    <div class="result ${result.exact_match ? 'exact-match' : ''}" 
+                         onclick="window.open('${episodeLink}', '_blank')" 
+                         style="cursor: pointer;">
+                        <div>剧集：${result.episode_title}</div>
+                        <div>时间戳：${result.timestamp}</div>
+                        <div>文本：${result.text}</div>
+                        <div>匹配率：${result.match_ratio.toFixed(1)}%${result.exact_match ? ' (完全匹配)' : ''}</div>
+                    </div>
+                `;
+            }).join('');
 
             // 为每个结果项添加动画
             const resultElements = document.querySelectorAll('.result');

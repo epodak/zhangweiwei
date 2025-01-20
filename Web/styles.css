@@ -102,6 +102,12 @@ body {
     transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
+.result:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
 /* 搜索容器响应式布局 */
 @media screen and (max-width: 720px) {
     .search-container, #results, .result, .no-results {
