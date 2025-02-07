@@ -1,8 +1,9 @@
 from FaceRec import FaceRecognizer
+#from FaceRec_insightface import FaceRecognizer
 from CutSubtitle import SubtitleExtractor
+#from CutSubtitle_paddleocr import SubtitleExtractor
 import os
-import shutil
-
+import traceback
 
 def clean_frames_folder(frames_output):
     """清理帧输出文件夹中的所有文件"""
@@ -73,8 +74,9 @@ def process_videos_in_folder(videos_folder, features_file, frames_output, subtit
                 clean_frames_folder(frames_output)
                 print(f"Cleaned frames for {video_file}")
 
-            except Exception as e:
-                print(f"Error processing {video_file}: {e}")
+            except Exception:
+                print(f"Error processing {video_file}")
+                traceback.print_exc()
                 continue
 
 
@@ -82,6 +84,7 @@ if __name__ == "__main__":
     # 配置路径
     videos_folder = "Videos"  # 包含所有视频的文件夹
     features_file = "face_features.npz"  # 预计算的特征向量文件
+    #features_file = "face_features_insightface.npz"  # 预计算的特征向量文件
     frames_output = "output_frames"
     subtitle_output = "subtitle"
 
