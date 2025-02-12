@@ -166,7 +166,6 @@ cython_debug/
 
 # Project Cache
 Test.py
-subtitle/
 Videos/
 output_frames/
 shibing624_chinese-text-correction-1.5b/
