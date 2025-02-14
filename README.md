@@ -10,7 +10,9 @@
 
 &emsp;&emsp;你还在为自己存放的VV表情包不够多，使用时觉得不够贴切而感到烦恼吗？快来试试这个项目吧！
 
-<img src="VVs.png" style="width:20%;"><img src="VV_meme_template.png" style="width:20%;">
+![](VV.gif)
+
+![公式化模版](VV_meme_template.png)
 
 &emsp;&emsp;本项目的python文件用于识别vv出现的视频片段（主要针对《这就是中国》节目）及对应的字幕，并输出为json文件。
 
