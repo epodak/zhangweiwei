@@ -4,6 +4,10 @@ let currentPage = 1;
 let totalPages = 1;
 const PAGE_SIZE = 20;
 
+let cachedSubtitles = null;
+
+let textIndex = null;
+
 // IndexedDB 初始化函数
 function openDB() {
     return new Promise((resolve, reject) => {
@@ -50,6 +54,13 @@ async function initDB() {
             progressBar.style.width = '100%';
             db = new SQL.Database(new Uint8Array(cachedData.data));
             console.log('Database loaded from IndexedDB cache');
+            
+            const results = db.exec('SELECT episode_title, timestamp, similarity, text FROM subtitles');
+            if (results.length > 0) {
+                cachedSubtitles = results[0].values;
+                textIndex = buildSearchIndex(cachedSubtitles);
+                console.log('Subtitles data preloaded into cache and index built');
+            }
         } else {
             // 从远程加载并显示进度
             const response = await fetch('https://vvdb.cicada000.work/subtitles.db');
@@ -90,9 +101,15 @@ async function initDB() {
             });
 
             db = new SQL.Database(new Uint8Array(buf));
+            
+            const results = db.exec('SELECT episode_title, timestamp, similarity, text FROM subtitles');
+            if (results.length > 0) {
+                cachedSubtitles = results[0].values;
+                textIndex = buildSearchIndex(cachedSubtitles);
+                console.log('Subtitles data preloaded into cache and index built');
+            }
         }
 
-        // 完成加载，显示主界面
         setTimeout(() => {
             loadingContainer.style.display = 'none';
             mainContent.classList.add('show');
@@ -124,23 +141,60 @@ function partialRatio(str1, str2) {
     str1 = str1.toLowerCase();
     str2 = str2.toLowerCase();
     
+    if (str1 === str2) return 100;
+    
+    if (str1.includes(str2) || str2.includes(str1)) {
+        return 100;
+    }
+    
     if (str1.length > str2.length) {
         [str1, str2] = [str2, str1];
     }
     
+    const len1 = str1.length;
+    const len2 = str2.length;
+    
     let maxRatio = 0;
-    for (let i = 0; i <= str2.length - str1.length; i++) {
-        const substring = str2.substr(i, str1.length);
-        const matches = [...str1].filter((char, index) => char === substring[index]).length;
-        const ratio = (matches / str1.length) * 100;
-        maxRatio = Math.max(maxRatio, ratio);
+    
+    for (let i = 0; i <= len2 - len1; i++) {
+        let matches = 0;
+        for (let j = 0; j < len1; j++) {
+            if (str1[j] === str2[i + j]) {
+                matches++;
+            }
+        }
+        const ratio = (matches / len1) * 100;
+        if (ratio > maxRatio) {
+            maxRatio = ratio;
+            if (maxRatio === 100) break;
+        }
     }
     
     return maxRatio;
 }
 
+function buildSearchIndex(subtitles) {
+    const index = new Map();
+    
+    subtitles.forEach((row, rowIndex) => {
+        const text = row[3].toLowerCase();
+        const seen = new Set();
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            if (seen.has(char)) continue;
+            seen.add(char);
+            if (!index.has(char)) {
+                index.set(char, new Set());
+            }
+            index.get(char).add(rowIndex);
+        }
+    });
+    
+    return index;
+}
+
 async function search(page) {
-    const query = document.getElementById('searchInput').value;
+    const query = document.getElementById('searchInput').value.trim();
     const minRatio = parseInt(document.getElementById('minRatio').value);
     const loading = document.getElementById('loading');
     const resultsDiv = document.getElementById('results');
@@ -164,47 +218,95 @@ async function search(page) {
         // 加载链接数据
         const linksResponse = await fetch('links.json');
         const episodeLinks = await linksResponse.json();
+
+        if (!cachedSubtitles) {
+            const results = db.exec('SELECT episode_title, timestamp, similarity, text FROM subtitles');
+            if (results.length > 0) {
+                cachedSubtitles = results[0].values;
+            }
+        }
         
         let matchedResults = [];
-        const results = db.exec('SELECT episode_title, timestamp, similarity, text FROM subtitles');
         
-        if (results.length > 0) {
-            const rows = results[0].values;
-            
+        if (cachedSubtitles && textIndex) {
             if (query.includes(' ')) {
-                // 严格搜索模式 - 完全匹配的结果
-                const keywords = query.split(' ').filter(k => k);
-                matchedResults = rows
-                    .filter(row => keywords.every(keyword => row[3].includes(keyword)))
-                    .map(row => ({
-                        episode_title: row[0],
-                        timestamp: row[1],
-                        similarity: row[2],
-                        text: row[3],
-                        match_ratio: 100,
-                        exact_match: row[3].includes(query)
-                    }));
+                const keywords = query.toLowerCase().split(' ').filter(k => k);
+            
+                const candidateSets = keywords.map(keyword => {
+                    const matches = new Set();
+                    for (const char of new Set(keyword)) {
+                        const indexMatches = textIndex.get(char);
+                        if (indexMatches) {
+                            if (matches.size === 0) {
+                                indexMatches.forEach(idx => matches.add(idx));
+                            } else {
+                                for (const idx of matches) {
+                                    if (!indexMatches.has(idx)) {
+                                        matches.delete(idx);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return matches;
+                });
+            
+                let smallest = candidateSets[0];
+                for (let i = 1; i < candidateSets.length; i++) {
+                    if (candidateSets[i].size < smallest.size) {
+                        smallest = candidateSets[i];
+                    }
+                }
+                const commonMatches = new Set([...smallest].filter(idx => candidateSets.every(set => set.has(idx))));
+            
+                matchedResults = Array.from(commonMatches)
+                    .map(idx => {
+                        const row = cachedSubtitles[idx];
+                        const text = row[3].toLowerCase();
+                        const exactMatch = keywords.every(k => text.includes(k));
+                        return {
+                            episode_title: row[0],
+                            timestamp: row[1],
+                            similarity: row[2],
+                            text: row[3],
+                            match_ratio: exactMatch ? 100 : 
+                                Math.max(...keywords.map(k => partialRatio(k, text))),
+                            exact_match: exactMatch
+                        };
+                    })
+                    .filter(item => item.match_ratio >= minRatio);
             } else {
-                // 模糊搜索模式
-                matchedResults = rows
-                    .map(row => ({
-                        episode_title: row[0],
-                        timestamp: row[1],
-                        similarity: row[2],
-                        text: row[3],
-                        match_ratio: partialRatio(query, row[3]),
-                        exact_match: row[3].includes(query) // 添加完全匹配标志
-                    }))
+                const lowerQuery = query.toLowerCase();
+                const candidates = new Set();
+                
+                for (const char of new Set(lowerQuery)) {
+                    const matches = textIndex.get(char);
+                    if (matches) {
+                        matches.forEach(idx => candidates.add(idx));
+                    }
+                }
+                
+                matchedResults = Array.from(candidates)
+                    .map(idx => {
+                        const row = cachedSubtitles[idx];
+                        const text = row[3];
+                        const exactMatch = text.toLowerCase().includes(lowerQuery);
+                        return {
+                            episode_title: row[0],
+                            timestamp: row[1],
+                            similarity: row[2],
+                            text: text,
+                            match_ratio: exactMatch ? 100 : partialRatio(query, text),
+                            exact_match: exactMatch
+                        };
+                    })
                     .filter(item => item.match_ratio >= minRatio);
             }
         }
 
-        // 更新排序逻辑
         const sortedResults = matchedResults.sort((a, b) => {
-            // 首先按完全匹配排序
             if (a.exact_match && !b.exact_match) return -1;
             if (!a.exact_match && b.exact_match) return 1;
-            // 其次按匹配率排序
             return b.match_ratio - a.match_ratio;
         });
 
