@@ -10,7 +10,7 @@
 
 &emsp;&emsp;你还在为自己存放的VV表情包不够多，使用时觉得不够贴切而感到烦恼吗？快来试试这个项目吧！
 
-![](VV.gif)
+![VV.gif](https://raw.githubusercontent.com/Cicada000/VV/refs/heads/main/VV.GIF)
 
 ![公式化模版](VV_meme_template.png)
 
@@ -18,7 +18,7 @@
 
 ### Python脚本使用说明
 
-`requiremenets.txt`：项目包依赖，在使用本项目之前请先下载，否则可能导致项目无法正常运行。
+`requirements.txt`：项目包依赖，在使用本项目之前请先下载，否则可能导致项目无法正常运行。
 
 `generate_features.py`：用于生成人脸特征数据的脚本，如果没有自己的数据集可以不用，本项目已经附带了人脸数据集。如果需要用自己的数据集训练在同级目录新建`target`文件夹，将人脸照片放入即可生成数据集文件。
 

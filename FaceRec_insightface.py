@@ -75,7 +75,7 @@ class FaceRecognizer:
         similarity = self.get_face_similarity(frame)
         return bool(similarity is not None and similarity > threshold)
 
-    def process_video(self, video_path: str, fps: int = 1, save_frames_folder: str = "output_frames") -> None:
+    def process_video(self, video_path: str, fps: int = 1, save_frames_folder: str = "output_frames", start_time: Optional[int] = None) -> None:
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
@@ -90,6 +90,11 @@ class FaceRecognizer:
             frame_rate = cap.get(cv2.CAP_PROP_FPS)
             interval = max(1, int(frame_rate / fps))
             frame_count = 0
+            
+            # 如果有起始时间，先定位到对应位置
+            if start_time is not None:
+                frame_count = int(start_time * frame_rate)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count)
 
             while True:
                 ret, frame = cap.read()
@@ -139,5 +144,5 @@ class FaceRecognizer:
         Image.fromarray(frame).save(frame_filename)
         print(f"Frame {frame_count}: {minutes}m{seconds:02d}s - similarity = {similarity:.3f}")
 
-    def process_video_with_params(self, video_path: str, output_folder: str, fps: int = 1) -> None:
-        self.process_video(video_path, fps, output_folder)
+    def process_video_with_params(self, video_path: str, output_folder: str, fps: int = 1, start_time: Optional[int] = None) -> None:
+        self.process_video(video_path, fps, output_folder, start_time)
