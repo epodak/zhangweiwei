@@ -30,13 +30,31 @@ def cosine_similarity(A: NDArray, B: NDArray) -> NDArray:
 
 class FaceRecognizer:
     def __init__(self, features_file: str) -> None:
-        # 初始化人脸分析模型，使用 buffalo_l 模型
-        self.app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+        self.app = FaceAnalysis(
+            name='buffalo_l',
+            providers=['CUDAExecutionProvider', 'CPUExecutionProvider'] 
+        )
         self.app.prepare(ctx_id=0, det_size=(640, 640))
-        
-        # 加载预计算的特征向量
+    
         self.stored_features = np.load(features_file)
         self.known_face_encodings = self.stored_features['encodings']
+        
+        if self._cuda_available():
+            import torch
+            self.known_face_encodings = torch.tensor(
+                self.known_face_encodings, 
+                device='cuda'
+            ).float()
+            self.use_cuda = True
+        else:
+            self.use_cuda = False
+
+    def _cuda_available(self) -> bool:
+        try:
+            import torch
+            return torch.cuda.is_available()
+        except ImportError:
+            return False
 
     def load_features(self, features_file: str) -> None:
         try:
@@ -64,12 +82,26 @@ class FaceRecognizer:
         if not face_encodings or len(self.known_face_encodings) == 0:
             return None
 
-        # 使用numpy实现的批量余弦相似度计算
-        similarities = cosine_similarity(
-            self.known_face_encodings,
-            np.vstack(face_encodings)
-        )
-        return float(np.max(similarities))
+        if self.use_cuda:
+            import torch
+            face_encodings_tensor = torch.tensor(
+                np.vstack(face_encodings), 
+                device='cuda'
+            ).float()
+
+            similarities = torch.nn.functional.cosine_similarity(
+                self.known_face_encodings.unsqueeze(1),
+                face_encodings_tensor.unsqueeze(0),
+                dim=2
+            )
+            return float(similarities.max().cpu().item())
+        else:
+
+            similarities = cosine_similarity(
+                self.known_face_encodings,
+                np.vstack(face_encodings)
+            )
+            return float(np.max(similarities))
 
     def recognize_face(self, frame: NDArray, threshold: float = 0.6) -> bool:
         similarity = self.get_face_similarity(frame)
