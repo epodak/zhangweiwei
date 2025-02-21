@@ -9,9 +9,11 @@ import re
 from collections import defaultdict
 from paddleocr import PaddleOCR
 import traceback
+import logging
 
 class SubtitleExtractor:
     def __init__(self):
+        logging.getLogger("ppocr").setLevel(logging.ERROR)
         try:
             self.ocr = PaddleOCR(
                 use_angle_cls=False,
