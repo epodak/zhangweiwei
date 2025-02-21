@@ -12,16 +12,31 @@ import traceback
 
 class SubtitleExtractor:
     def __init__(self):
-        self.ocr = PaddleOCR(
-            use_angle_cls=True,
-            lang="ch",
-            det_model_dir="ch_PP-OCRv4_det_infer",  # 检测模型
-            rec_model_dir="ch_PP-OCRv4_rec_infer",  # 识别模型
-            cls_model_dir="ch_PP-OCRv4_cls_infer",  # 方向分类模型
-            show_log=False
-        )
+        try:
+            self.ocr = PaddleOCR(
+                use_angle_cls=True,
+                lang="ch",
+                det_model_dir="ch_PP-OCRv4_det_infer",
+                rec_model_dir="ch_PP-OCRv4_rec_infer",
+                cls_model_dir="ch_PP-OCRv4_cls_infer",
+                show_log=False,
+                use_gpu=True,
+                gpu_mem=500,
+                enable_mkldnn=True
+            )
+        except Exception as e:
+            print(f"GPU 初始化失败；回退到 CPU 模式：{str(e)}")
+            self.ocr = PaddleOCR(
+                use_angle_cls=True,
+                lang="ch",
+                det_model_dir="ch_PP-OCRv4_det_infer",
+                rec_model_dir="ch_PP-OCRv4_rec_infer",
+                cls_model_dir="ch_PP-OCRv4_cls_infer",
+                show_log=False,
+                use_gpu=False,
+                enable_mkldnn=True
+            )
         
-        # 字幕过滤区域
         self.subtitle_area = (235, 900, 235 + 1200, 900 + 90)
         
         # 正则表达式模式
