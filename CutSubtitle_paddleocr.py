@@ -54,42 +54,42 @@ class SubtitleExtractor:
         return 0
 
     def process_image(self, img_path):
-    try:
-        img = Image.open(img_path)
-        
-        if img.size != (1920, 1080):
-            raise ValueError("Incorrect image size")
-        
-        # 将PIL Image转换为numpy数组
-        img_array = np.array(img)
-        
-        # OCR识别整张图片
-        result = self.ocr.ocr(img_array, cls=True)
-        
-        # 释放 img 和 img_array
-        img.close()
-        del img, img_array
-        
-        if result and result[0]:
-            texts = []
-            for line in result[0]:
-                box = line[0]
-                box_in_area = all(
-                    self.subtitle_area[0] <= point[0] <= self.subtitle_area[2] and
-                    self.subtitle_area[1] <= point[1] <= self.subtitle_area[3]
-                    for point in box
-                )
-                
-                if box_in_area and line[1][1] > 0.8:
-                    texts.append(line[1][0])
+        try:
+            img = Image.open(img_path)
             
-            return ' '.join(texts).strip()
-        return None
-        
-    except Exception as e:
-        print(f"Error processing image {img_path}:")
-        traceback.print_exc()
-        return None
+            if img.size != (1920, 1080):
+                raise ValueError("Incorrect image size")
+            
+            # 将PIL Image转换为numpy数组
+            img_array = np.array(img)
+            
+            # OCR识别整张图片
+            result = self.ocr.ocr(img_array, cls=True)
+            
+            # 释放 img 和 img_array
+            img.close()
+            del img, img_array
+            
+            if result and result[0]:
+                texts = []
+                for line in result[0]:
+                    box = line[0]
+                    box_in_area = all(
+                        self.subtitle_area[0] <= point[0] <= self.subtitle_area[2] and
+                        self.subtitle_area[1] <= point[1] <= self.subtitle_area[3]
+                        for point in box
+                    )
+                    
+                    if box_in_area and line[1][1] > 0.8:
+                        texts.append(line[1][0])
+                
+                return ' '.join(texts).strip()
+            return None
+            
+        except Exception as e:
+            print(f"Error processing image {img_path}:")
+            traceback.print_exc()
+            return None
 
     def process_frames(self, input_folder, output_folder):
         """处理文件夹中的所有帧并生成字幕"""
