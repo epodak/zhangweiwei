@@ -13,7 +13,7 @@ import logging
 
 class SubtitleExtractor:
     def __init__(self):
-        logging.getLogger("ppocr").setLevel(logging.ERROR)
+        logging.disable(logging.WARNING)
         try:
             self.ocr = PaddleOCR(
                 use_angle_cls=False,
