@@ -54,7 +54,7 @@
 > [!TIP]
 > 如果要使用GPU进行训练，推荐使用Linux环境~~因为我Windows配半天没配好~~。笔者环境为WSL2 Ubuntu24.04 + CUDA12.8 + libcudnn9
 
-正常使用CPU运行直接下载依赖运行即可。
+正常使用CPU运行直接下载依赖运行即可（应该）。
 
 如需使用GPU运行（这玩意拿纯CPU运行慢的要死），在下载相关pip库时需下载GPU版本。例如`pip install paddlepaddle`需改为`pip install paddlepaddle-gpu`，使用高版本的CUDA时，则需要下载更高版本的库，可在官网找到[下载命令](https://www.paddlepaddle.org.cn/en/install/quick?docurl=/documentation/docs/en/develop/install/pip/linux-pip_en.html)。
 
@@ -67,6 +67,8 @@
 <center><img src="search_result.png" style="max-height:3000px"></center>
 
 &emsp;&emsp;如果想使用精确搜索，可以输入多个词组，则会返回同时包含这几个词组的字幕台词。例如上图如果只想搜索到最精确的结果，则将“我看了都乐了”改为“我看了 都乐了”输入即可输出最匹配的一个结果。
+
+## API使用说明
 
 ## 未完成功能
 
@@ -84,3 +86,9 @@
 [insightface](https://github.com/deepinsight/insightface)
 
 [dlib](https://github.com/davisking/dlib)
+
+[BBDown](https://github.com/nilaoda/BBDown)
+
+## 致谢
+
+&emsp;&emsp;感谢[wen999di](https://github.com/wen999di)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Awen999di)，大幅提高了人脸检测准确率和字幕识别准确率。感谢[undef-i](https://github.com/undef-i)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Aundef-i)，大幅提高了字幕检索速度，并且添加了GPU支持，大幅减少了新版本的人脸识别和字幕识别所需的时间。
