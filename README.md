@@ -70,6 +70,22 @@
 
 ## API使用说明
 
+&emsp;&emsp;API具体请求示例如下：
+
+```
+https://vvapi.cicada000.work/search?query=测试&min_ratio=50&min_similarity=0.5&max_results=10
+```
+
+参数解释：
+
+`query`：请求查询的关键词。
+
+`min_ratio`：关键词在句子中的最小匹配度。（这一部分算法还待优化）
+
+`min_similarity`：最小的人脸识别匹配度，一般认为0.5以上为VV。
+
+`max_results`：返回的结果最多的个数，如果不添加默认返回全部匹配的结果。
+
 ## 未完成功能
 
 - [x] 提高人脸识别精度
