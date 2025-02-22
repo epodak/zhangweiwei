@@ -89,7 +89,7 @@ def search_json_files(folder_path: str, query: str, min_ratio: float = 50.0,
 
     return results
 
-@app.route('/api/search', methods=['GET'])
+@app.route('/search', methods=['GET'])
 def search():
     try:
         default_folder = 'subtitle'
