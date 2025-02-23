@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
 
+
 def partial_ratio(str1: str, str2: str) -> float:
     """计算两个字符串的模糊匹配比率"""
     str1 = str1.lower()
@@ -38,21 +39,28 @@ def partial_ratio(str1: str, str2: str) -> float:
 
     return max_ratio
 
-def search_json_files(folder_path: str, query: str, min_ratio: float = 50.0, 
-                     min_similarity: float = 0.0, max_results: int = None) -> List[
+
+def search_json_files(folder_path: str, query: str, min_ratio: float = 50.0,
+                      min_similarity: float = 0.0, max_results: int = None) -> List[
     Tuple[str, str, float, str, float]]:
     """搜索文件夹中所有JSON文件，返回匹配结果"""
     results = []
     query = query.lower()
 
+    # 检查是否包含空格或%20，并进行分词
+    has_spaces = ' ' in query or '%20' in query
+    query_words = query.replace('%20', ' ').split() if has_spaces else [query]
+
     # 打印当前目录及上级目录的文件夹内容
     current_directory = os.getcwd()
     logging.debug(f"当前工作目录: {current_directory}")
-    current_directory_folders = [f for f in os.listdir(current_directory) if os.path.isdir(os.path.join(current_directory, f))]
+    current_directory_folders = [f for f in os.listdir(current_directory) if
+                                 os.path.isdir(os.path.join(current_directory, f))]
     logging.debug(f"当前目录的所有文件夹: {current_directory_folders}")
 
     parent_directory = os.path.dirname(current_directory)
-    parent_directory_folders = [f for f in os.listdir(parent_directory) if os.path.isdir(os.path.join(parent_directory, f))]
+    parent_directory_folders = [f for f in os.listdir(parent_directory) if
+                                os.path.isdir(os.path.join(parent_directory, f))]
     logging.debug(f"上级目录: {parent_directory}")
     logging.debug(f"上级目录的所有文件夹: {parent_directory_folders}")
 
@@ -72,22 +80,34 @@ def search_json_files(folder_path: str, query: str, min_ratio: float = 50.0,
                     if similarity < min_similarity:
                         continue
 
-                    exact_match = query in text.lower()
-                    match_ratio = 100 if exact_match else partial_ratio(query, text)
+                    text_lower = text.lower()
 
-                    if match_ratio >= min_ratio:
-                        results.append((filename, timestamp, similarity, text, match_ratio))
+                    if has_spaces:
+                        # 精确搜索：要求所有词都出现在文本中
+                        if all(word in text_lower for word in query_words):
+                            # 计算匹配率：取所有词中最低的匹配率
+                            match_ratio = min(partial_ratio(word, text) for word in query_words)
+                            if match_ratio >= min_ratio:
+                                results.append((filename, timestamp, similarity, text, match_ratio))
+                    else:
+                        # 模糊搜索：原有逻辑
+                        exact_match = query in text_lower
+                        match_ratio = 100 if exact_match else partial_ratio(query, text)
+                        if match_ratio >= min_ratio:
+                            results.append((filename, timestamp, similarity, text, match_ratio))
 
             except Exception as e:
                 logging.error(f"处理文件 {filename} 时出错: {str(e)}")
                 continue
 
-    results.sort(key=lambda x: (-x[4], not (query in x[3].lower())))
+    # 排序：优先按匹配率降序，其次按是否完全包含所有词
+    results.sort(key=lambda x: (-x[4], not all(word in x[3].lower() for word in query_words)))
 
     if max_results is not None and len(results) > max_results:
         results = results[:max_results]
 
     return results
+
 
 @app.route('/search', methods=['GET'])
 def search():
@@ -109,7 +129,8 @@ def search():
         min_similarity = request.args.get('min_similarity', default=0, type=float)
         max_results = request.args.get('max_results', default=None, type=int)
 
-        logging.debug(f"请求参数: query={query}, min_ratio={min_ratio}, min_similarity={min_similarity}, max_results={max_results}")
+        logging.debug(
+            f"请求参数: query={query}, min_ratio={min_ratio}, min_similarity={min_similarity}, max_results={max_results}")
 
         if not query:
             return jsonify({
@@ -145,7 +166,7 @@ def search():
                     'similarity': similarity,
                     'text': text,
                     'match_ratio': match_ratio,
-                    'exact_match': query in text.lower()
+                    'exact_match': all(word in text.lower() for word in query.replace('%20', ' ').split())
                 }
                 for filename, timestamp, similarity, text, match_ratio in results
             ]
@@ -178,6 +199,7 @@ def search():
             'status': 'error',
             'message': f"发生错误: {str(e)}"
         }), 500
+
 
 # 直接使用 Flask 的 WSGI 应用作为入口
 application = app
