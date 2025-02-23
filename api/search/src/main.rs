@@ -53,33 +53,28 @@ fn partial_ratio(str1: &str, str2: &str) -> f64 {
     let str1_lower = str1.to_lowercase();
     let str2_lower = str2.to_lowercase();
 
-    if str1_lower == str2_lower {
+    if str1_lower == str2_lower || str2_lower.contains(&str1_lower) || str1_lower.contains(&str2_lower) {
         return 100.0;
     }
 
-    if str2_lower.contains(&str1_lower) || str1_lower.contains(&str2_lower) {
-        return 100.0;
-    }
-
-    let (shorter, longer) = if str1_lower.len() > str2_lower.len() {
-        (&str2_lower, &str1_lower)
-    } else {
-        (&str1_lower, &str2_lower)
-    };
-
-    if shorter.is_empty() {
+    if str1_lower.is_empty() || str2_lower.is_empty() {
         return 0.0;
     }
 
-    let shorter_bytes = shorter.as_bytes();
-    let longer_bytes = longer.as_bytes();
-    let shorter_len = shorter_bytes.len();
-    let longer_len = longer_bytes.len();
+    let (shorter, longer) = if str1_lower.chars().count() > str2_lower.chars().count() {
+        (str2_lower, str1_lower)
+    } else {
+        (str1_lower, str2_lower)
+    };
+
+    let shorter_len = shorter.chars().count();
+    let longer_len = longer.chars().count();
 
     (0..=longer_len.saturating_sub(shorter_len))
         .map(|i| {
-            let matches = shorter_bytes.iter()
-                .zip(&longer_bytes[i..i + shorter_len])
+            let window = longer.chars().skip(i).take(shorter_len);
+            let matches = shorter.chars()
+                .zip(window)
                 .filter(|(a, b)| a == b)
                 .count();
             (matches as f64 / shorter_len as f64) * 100.0
