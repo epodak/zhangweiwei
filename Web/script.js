@@ -71,7 +71,7 @@ loadMapping().then(mapping => {
         document.getElementById('results').innerHTML = '';
 
         // 生成 API URL
-        const url = `https://vvapi.cicada000.work/search?query=${encodeURIComponent(query)}&min_ratio=${minRatio}&min_similarity=${minSimilarity}&max_results=${maxResults}`;
+        const url = `/search?query=${encodeURIComponent(query)}&min_ratio=${minRatio}&min_similarity=${minSimilarity}&max_results=${maxResults}`;
 
         try {
             const response = await fetch(url);

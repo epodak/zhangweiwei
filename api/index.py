@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import subprocess
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from typing import List, Tuple
 
 logging.basicConfig(level=logging.DEBUG)
@@ -18,13 +18,9 @@ def search():
         max_results = request.args.get('max_results', '10')
 
         query_string = f"query={query}"
-        if min_ratio:
-            query_string += f"&min_ratio={min_ratio}"
-        if min_similarity:
-            query_string += f"&min_similarity={min_similarity}"
-        if max_results:
-            query_string += f"&max_results={max_results}"
-
+        query_string += f"&min_ratio={min_ratio}"
+        query_string += f"&min_similarity={min_similarity}"
+        query_string += f"&max_results={max_results}"
 
         rust_process = subprocess.Popen(
             ['./api/subtitle_search_api'],
@@ -59,6 +55,7 @@ def search():
             "status": "error",
             "error": str(e)
         }), 500
+
 
 application = app
 
