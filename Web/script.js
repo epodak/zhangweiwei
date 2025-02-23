@@ -166,7 +166,7 @@ loadMapping().then(mapping => {
     }
 
     /**
-     * 启动进度条，预计 7 秒走完
+     * 启动进度条，预计 3 秒走完
      */
     function startLoadingBar() {
         const loadingBar = document.getElementById('loadingBar');
@@ -183,7 +183,7 @@ loadMapping().then(mapping => {
                 clearInterval(loadingBar.interval);
                 loadingBar.style.display = "none";
             }
-        }, 70); // 7 秒走完 (70ms * 100 = 7000ms)
+        }, 30); // 3 秒走完 (30ms * 100 = 3000ms)
     }
 
     /**
