@@ -59,7 +59,7 @@ body {
 
 #title {
     font-family: "Noto Serif SC", serif;
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 800;
     letter-spacing: 0.05em;
     background: linear-gradient(to right, var(--accent), var(--gray-600));
@@ -97,7 +97,7 @@ body {
 
 .input-group {
     display: grid;
-    gap: 0.5rem;
+    gap: 1rem;
     margin-bottom: 0.75rem;
 }
 
@@ -295,7 +295,7 @@ input:focus {
     }
     
     #title {
-        font-size: 1.75rem;
+        font-size: 2rem;
     }
 }
 
@@ -306,7 +306,7 @@ input:focus {
     }
 
     #title {
-        font-size: 1.5rem;
+        font-size: 1.75rem;
     }
 
     .logo-image {
@@ -553,4 +553,49 @@ input::placeholder {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--gray-300);
+}
+
+input,
+button {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.error-message {
+    background-color: #f0f0f0;
+    color: #333;
+    border: 2px solid #ccc;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--radius);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    align-items: center;
+    gap: 1rem;
+}
+
+.error-message:hover {
+    border-color: #bbb;
+    box-shadow: var(--shadow);
+    transform: scale(1.02);
+}
+
+.error-message:active {
+    transform: scale(0.98);
+    box-shadow: none;
+    background-color: #e0e0e0;
+}
+
+.error-message h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.error-message ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style-type: disc;
 }

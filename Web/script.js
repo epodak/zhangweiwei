@@ -260,10 +260,23 @@ function displayResults(data, append = false) {
         resultsDiv.innerHTML = '';
         AppState.displayedCount = 0;
     }
-    
-    if (data.status !== 'success' || (!append && data.count === 0)) {
+    if (data['data'][0]['count'] === 0) {
         if (!append) {
-            resultsDiv.innerHTML = '<div class="result-card">未找到匹配结果</div>';
+            const query = document.getElementById('query').value.trim();
+            const minRatio = parseFloat(document.getElementById('minRatio').value).toFixed(1);
+            const minSimilarity = parseFloat(document.getElementById('minSimilarity').value).toFixed(1);
+            
+            resultsDiv.innerHTML = `
+                <div class="error-message">
+                    <h3>未找到与 "${query}" 匹配的结果</h3>
+                    <p>建议：</p>
+                    <ul>
+                        <li>检查输入是否正确</li>
+                        <li>尝试降低最小匹配率（当前：${minRatio}%）</li>
+                        <li>尝试降低最小相似度（当前：${minSimilarity}）</li>
+                        <li>尝试使用更简短的关键词</li>
+                    </ul>
+                </div>`;
         }
         AppState.hasMoreResults = false;
         return;
@@ -278,51 +291,64 @@ function displayResults(data, append = false) {
     }
 
     newResults.forEach(result => {
-        const episodeMatch = result.filename.match(/\[P(\d+)\]/);
-        const timeMatch = result.timestamp.match(/^(\d+)m(\d+)s$/);
+        if (!result || typeof result !== 'object') return;
+
+        const episodeMatch = result.filename ? result.filename.match(/\[P(\d+)\]/) : null;
+        const timeMatch = result.timestamp ? result.timestamp.match(/^(\d+)m(\d+)s$/) : null;
         
         let imageUrl = '';
         if (episodeMatch && timeMatch) {
             const episodeNum = parseInt(episodeMatch[1], 10);
-            const totalSeconds = parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
+            const minutes = parseInt(timeMatch[1]);
+            const seconds = parseInt(timeMatch[2]);
+            const totalSeconds = minutes * 60 + seconds;
             imageUrl = `frames/${episodeNum}/frame_${totalSeconds}.webp`;
         }
 
         const cleanFilename = result.filename
-            .replace(/\[P(\d+)\].*?\s+/, 'P$1 ')
-            .replace(/\.json$/, '')
-            .trim();
+            ? result.filename
+                .replace(/\[P(\d+)\].*?\s+/, 'P$1 ')
+                .replace(/\.json$/, '')
+                .trim()
+            : '';
 
         const card = document.createElement('div');
         card.className = 'result-card';
         
+        const episodeTag = cleanFilename.match(/P\d+/);
         const cardContent = `
             <div class="result-content">
-                <h3><span class="tag">${cleanFilename.match(/P\d+/)}</span>${cleanFilename.replace(/P\d+/, '').trim()}</h3>
-                <p class="result-text">${result.text}</p>
-                <p class="result-meta">${result.timestamp} · 匹配度 ${parseFloat(result.match_ratio).toFixed(1)}% · 相似度 ${(result.similarity * 100).toFixed(1)}%</p>
+                <h3>${episodeTag ? `<span class="tag">${episodeTag[0]}</span>${cleanFilename.replace(/P\d+/, '').trim()}` : cleanFilename}</h3>
+                <p class="result-text">${result.text || ''}</p>
+                ${result.timestamp ? `
+                <p class="result-meta">
+                    ${result.timestamp} · 
+                    匹配度 ${result.match_ratio ? parseFloat(result.match_ratio).toFixed(1) : 0}% · 
+                    相似度 ${result.similarity ? (result.similarity * 100).toFixed(1) : 0}%
+                </p>` : ''}
             </div>
         `;
+
+        card.innerHTML = cardContent;
+        resultsDiv.appendChild(card);
 
         if (imageUrl) {
             const img = new Image();
             img.src = imageUrl;
             img.className = 'preview-frame';
             img.loading = 'lazy';
-            
-            img.onerror = () => {
-                card.innerHTML = cardContent;
-            };
+            img.decoding = 'async';
             
             img.onload = () => {
-                card.innerHTML = img.outerHTML + cardContent;
+                card.insertBefore(img, card.firstChild);
+            };
+
+            img.onerror = () => {
+                console.warn('图片加载失败:', imageUrl);
             };
         }
-        
-        card.innerHTML = cardContent;
 
         card.addEventListener('click', () => handleCardClick(result));
-        resultsDiv.appendChild(card);
     });
 
     AppState.displayedCount = endIndex;

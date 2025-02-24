@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import subprocess
+import jieba
 from flask import Flask, request, jsonify, send_file
 from typing import List, Tuple
 
@@ -17,7 +18,10 @@ def search():
         min_ratio = request.args.get('min_ratio', '50')
         min_similarity = request.args.get('min_similarity', '0.5')
 
-        query_string = f"query={query}"
+        # 对查询进行分词
+        segmented_query = ' '.join(jieba.cut(query))
+        
+        query_string = f"query={segmented_query}"
         query_string += f"&min_ratio={min_ratio}"
         query_string += f"&min_similarity={min_similarity}"
 
@@ -28,12 +32,13 @@ def search():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1
+                bufsize=1  # 行缓冲
             )
             
             rust_process.stdin.write(query_string + '\n')
             rust_process.stdin.flush()
             
+            # 逐行读取并返回数据
             first_item = True
             while True:
                 line = rust_process.stdout.readline()
@@ -56,6 +61,7 @@ def search():
             "status": "error",
             "error": str(e)
         }), 500
+
 
 
 application = app
