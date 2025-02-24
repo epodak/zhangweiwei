@@ -263,10 +263,9 @@ async fn main() {
         .collect();
 
     let response = if !results.is_empty() {
-        let results_len = results.len();
-        let formatted_results: Vec<SearchResult> = results.into_iter()
+        results.into_iter()
             .map(|(filename, timestamp, similarity, text, match_ratio)| {
-                SearchResult {
+                let search_result = SearchResult {
                     filename,
                     timestamp,
                     similarity,
@@ -274,21 +273,13 @@ async fn main() {
                     match_ratio,
                     exact_match: query_words.iter()
                         .all(|word| text.to_lowercase().contains(&word.to_lowercase())),
-                }
+                };
+                serde_json::to_string(&search_result).unwrap()
             })
-            .collect();
-
-        SearchResponse {
-            status: "success".to_string(),
-            data: formatted_results,
-            count: results_len,
-            folder: default_folder.to_string(),
-            max_results: params.max_results.map_or("unlimited".to_string(), |m| m.to_string()),
-            message: None,
-            suggestions: None,
-        }
+            .collect::<Vec<String>>()
+            .join("\n")
     } else {
-        SearchResponse {
+        serde_json::to_string(&SearchResponse {
             status: "success".to_string(),
             data: vec![],
             count: 0,
@@ -301,8 +292,8 @@ async fn main() {
                 format!("尝试降低最小原始相似度（当前：{}）", params.min_similarity),
                 "尝试使用更简短的关键词".to_string(),
             ]),
-        }
+        }).unwrap()
     };
 
-    println!("{}", serde_json::to_string(&response).unwrap());
+    println!("{}", response);
 } 

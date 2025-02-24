@@ -14,6 +14,12 @@
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+html {
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+    scroll-behavior: smooth;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -25,6 +31,8 @@ body {
     color: var(--primary);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    padding-right: 0 !important;
 }
 
 /* 头部样式 */
@@ -161,8 +169,30 @@ input:focus {
     font-size: 0.75rem;
     color: var(--gray-600);
     font-weight: 500;
+    height: 1.2em;
+    min-height: 1.2em;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+#randomStringDisplay.fade-out {
+    opacity: 0;
+    transform: translateY(-10px);
+    visibility: hidden;
+}
+
+#randomStringDisplay.fade-in {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+/* 确保结果容器有一个固定的上边距 */
+#results {
+    margin-top: 1.5rem;
+}
 
 .result-card {
     padding: 1rem;
@@ -486,4 +516,41 @@ input::placeholder {
     opacity: 1;
     margin-top: 0.5rem;
     padding: 1rem;
+}
+.loading-indicator {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-size: 14px;
+}
+
+#randomStringDisplay {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.fade-in {
+    opacity: 1;
+}
+
+.fade-out {
+    opacity: 0;
+}
+
+/* 美化滚动条样式 */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--gray-50);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-200);
+    border: 3px solid var(--gray-50);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-300);
 }
