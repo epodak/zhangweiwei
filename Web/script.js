@@ -10,202 +10,261 @@ async function loadMapping() {
     }
 }
 
-// 当 mapping.json 加载完成后，执行以下代码
-loadMapping().then(mapping => {
-    let isSearching = false;  // 用于判断是否正在搜索
+// 应用状态管理
+const AppState = {
+    isSearching: false,
+    randomStringDisplayed: false
+};
 
-    document.getElementById('searchForm').addEventListener('submit', async (e) => {
-        if (isSearching) return; // 如果正在搜索，忽略这次提交
-        isSearching = true;  // 设置搜索状态为正在搜索
-        e.preventDefault(); // 阻止默认提交行为
-        startLoadingBar();  // 显示进度条
-        showRandomString(); // 显示一次随机字符串
-        searchQuery(); // 执行搜索逻辑
-    });
+// 配置常量
+const CONFIG = {
+    randomStrings: ["探索VV的开源世界", "为东大助力", "搜索你想要的内容"],
+    apiBaseUrl: 'https://vv-indol.vercel.app'
+};
 
-    // 监听回车键 (Enter) 事件，防止重复提交
-    document.getElementById('query').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // 阻止浏览器默认提交
-            if (isSearching) return; // 如果正在搜索，忽略回车
-            document.getElementById('searchForm').dispatchEvent(new Event('submit'));
-        }
-    });
-
-    // 随机字符串数组
-    const randomStrings = ["看看项目的GitHub！", "成为VV的开源用户！", "帮助东大的可怜儿童！"];
-
-    document.getElementById('refreshDiv').addEventListener('click', function() {
-        location.reload(); // 刷新页面
-    });
-
-    // 显示随机字符串的函数
-    let randomStringDisplayed = false;
-    function showRandomString() {
-        if (!randomStringDisplayed) {
-            const randomStringDisplay = document.getElementById('randomStringDisplay');
-            const randomIndex = Math.floor(Math.random() * randomStrings.length);
-            randomStringDisplay.innerText = randomStrings[randomIndex];
-            randomStringDisplayed = true;
+// UI 控制器
+class UIController {
+    static updateSearchFormPosition(isSearching) {
+        const searchForm = document.getElementById('searchForm');
+        if (isSearching) {
+            searchForm.classList.add('searching');
+        } else {
+            searchForm.classList.remove('searching');
         }
     }
 
-    // 搜索逻辑封装在单独函数
-    async function searchQuery() {
-        const query = document.getElementById('query').value.trim();
-        const minRatio = document.getElementById('minRatio').value;
-        const minSimilarity = document.getElementById('minSimilarity').value;
-        const maxResults = document.getElementById('maxResults').value;
-
-        // 如果搜索框为空，则不进行搜索
-        if (query === "") {
-            alert("请输入搜索关键词！");
-            isSearching = false; // 搜索结束，恢复为非搜索状态
-            return;
+    static showRandomString() {
+        if (!AppState.randomStringDisplayed) {
+            const randomStringDisplay = document.getElementById('randomStringDisplay');
+            const randomIndex = Math.floor(Math.random() * CONFIG.randomStrings.length);
+            randomStringDisplay.textContent = CONFIG.randomStrings[randomIndex];
+            AppState.randomStringDisplayed = true;
         }
+    }
 
-        // 让搜索框向上移动
-        moveSearchFormUp();
+    static clearRandomString() {
+        document.getElementById('randomStringDisplay').textContent = '';
+        AppState.randomStringDisplayed = false;
+    }
 
-        // 清空结果区，确保每次开始新搜索时不会显示上次的结果
-        document.getElementById('results').innerHTML = '';
+}
 
-        // 生成 API URL
-        const url = `/search?query=${encodeURIComponent(query)}&min_ratio=${minRatio}&min_similarity=${minSimilarity}&max_results=${maxResults}`;
-
+// 搜索控制器
+class SearchController {
+    static async performSearch(query, minRatio, minSimilarity, maxResults) {
+        const url = `${CONFIG.apiBaseUrl}/search?query=${encodeURIComponent(query)}&min_ratio=${minRatio}&min_similarity=${minSimilarity}&max_results=${maxResults}`;
+        
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error("网络请求失败");
-
-            const data = await response.json();
-            completeLoadingBar(); // 提前完成进度条
-            stopRandomString(); // 停止显示随机字符串
-            displayResults(data);
+            return await response.json();
         } catch (error) {
-            console.error('Error:', error);
-            completeLoadingBar();
-            stopRandomString(); // 停止显示随机字符串
-            document.getElementById('results').innerHTML = '<p>搜索失败，请稍后重试</p>';
-        } finally {
-            isSearching = false;  // 搜索完成后恢复为非搜索状态
+            console.error('搜索错误:', error);
+            throw error;
         }
     }
 
-    // 让搜索框从居中移动到顶部
-    function moveSearchFormUp() {
-        const searchForm = document.getElementById('searchForm');
-        if (searchForm.classList.contains('centered')) {
-            searchForm.classList.remove('centered');
-            searchForm.classList.add('top');
-        }
+    static validateSearchInput(query) {
+        return query.trim() !== "";
+    }
+}
 
-        // 让结果显示
-        document.getElementById('results').style.display = 'block';
+// 处理搜索的主函数
+async function handleSearch(mapping) {
+    const query = document.getElementById('query').value.trim();
+    const minRatio = document.getElementById('minRatio').value;
+    const minSimilarity = document.getElementById('minSimilarity').value;
+    const maxResults = document.getElementById('maxResults').value;
+
+    if (!SearchController.validateSearchInput(query)) {
+        alert("请输入搜索关键词！");
+        return;
     }
 
-    // 显示搜索结果
-    function displayResults(data) {
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = ''; // 清空旧的搜索结果
+    try {
+        startLoadingBar();
+        UIController.showRandomString();
+        UIController.updateSearchFormPosition(true);
+        document.getElementById('results').innerHTML = '';
 
-        if (data.status !== 'success' || data.count === 0) {
-            resultsDiv.innerHTML = '<p>未找到匹配结果</p>';
-            return;
-        }
+        const data = await SearchController.performSearch(query, minRatio, minSimilarity, maxResults);
+        
+        displayResults(data);
+    } catch (error) {
+        console.error('搜索失败:', error);
+        document.getElementById('results').innerHTML = '<div class="result-card">搜索失败，请稍后重试</div>';
+    } finally {
 
-        data.data.forEach(result => {
-            const card = document.createElement('div');
-            card.className = 'result-card';
-            card.innerHTML = `
-                <h3>${result.filename}</h3>
-                <p>匹配文本: <span class="highlight">${result.text}</span></p>
-                <p>时间戳: ${result.timestamp}</p>
-                <p>匹配度: ${result.match_ratio}%</p>
-                <p>相似度: ${(result.similarity * 100).toFixed(1)}%</p>
-                <p>精确匹配: ${result.exact_match ? '是' : '否'}</p>
-            `;
+        completeLoadingBar();
+        UIController.clearRandomString();
+        UIController.updateSearchFormPosition(false);
+    }
+}
 
-            // 添加点击事件，跳转到相应的 B站链接
-            card.addEventListener('click', () => {
-                const timestamp = result.timestamp;
+async function initializeApp() {
+    try {
+        const mapping = await loadMapping();
+        
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (AppState.isSearching) return;
             
-                // 使用正则表达式来匹配分钟和秒数的格式（例如 "21m50s"）
-                const match = timestamp.match(/^(\d+)m(\d+)s$/);
-            
-                if (match) {
-                    const minutes = parseInt(match[1], 10);  // 解析分钟部分
-                    const seconds = parseInt(match[2], 10);  // 解析秒数部分
-                    const totalSeconds = minutes * 60 + seconds; // 计算总秒数
-            
-                    // 获取映射中的 URL
-                    const episodeUrl = getEpisodeUrl(result.filename);
-                    if (episodeUrl) {
-                        // 拼接完整的 B站播放链接
-                        const videoUrl = `https://www.bilibili.com${episodeUrl}?share_source=copy_web&t=${totalSeconds}`;
-                        window.open(videoUrl, '_blank'); 
-                    } else {
-                        alert("找不到对应的播放链接");
-                    }
-                } else {
-                    alert("时间戳格式错误，请检查！"); // 如果格式不匹配，提示错误
-                }
-            });
-
-            resultsDiv.appendChild(card);
+            AppState.isSearching = true;
+            try {
+                await handleSearch(mapping);
+            } finally {
+                AppState.isSearching = false;
+            }
         });
-    }
 
-    // 根据 filename 查找对应的播放 URL
-    function getEpisodeUrl(filename) {
-        for (let key in mapping) {
-            if (mapping[key] === filename) {
-                return key;
+        // 监听回车键 (Enter) 事件，防止重复提交
+        document.getElementById('query').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // 阻止浏览器默认提交
+                if (AppState.isSearching) return; // 如果正在搜索，忽略回车
+                document.getElementById('searchForm').dispatchEvent(new Event('submit'));
             }
+        });
+
+        document.getElementById('refreshDiv').addEventListener('click', function() {
+            location.reload(); // 刷新页面
+        });
+
+        
+    } catch (error) {
+        console.error('初始化失败:', error);
+    }
+}
+
+// 启动应用
+document.addEventListener('DOMContentLoaded', () => {
+    initializeApp();
+
+    const toggleButton = document.getElementById('toggleAdvancedOptions');
+    const advancedOptions = document.getElementById('advancedOptions');
+    
+    toggleButton.addEventListener('click', () => {
+        const isExpanded = advancedOptions.classList.contains('show');
+        
+        // 切换状态前先设置最大高度
+        if (!isExpanded) {
+            // 临时移除 transition 以获取实际高度
+            advancedOptions.style.transition = 'none';
+            advancedOptions.classList.add('show');
+            const height = advancedOptions.scrollHeight;
+            advancedOptions.classList.remove('show');
+            
+            // 重新启用 transition
+            void advancedOptions.offsetHeight; // 触发重排
+            advancedOptions.style.transition = '';
+            advancedOptions.style.maxHeight = height + 'px';
+            advancedOptions.classList.add('show');
+        } else {
+            advancedOptions.style.maxHeight = '0';
+            advancedOptions.classList.remove('show');
         }
-        return null; // 没有找到对应的 URL
-    }
-
-    /**
-     * 启动进度条，预计 3 秒走完
-     */
-    function startLoadingBar() {
-        const loadingBar = document.getElementById('loadingBar');
-        loadingBar.style.width = "0%";
-        loadingBar.style.display = "block";
         
-        let progress = 0;
-        loadingBar.interval = setInterval(() => {
-            progress += 1; // 每次增加 1%
-            loadingBar.style.width = `${progress}%`;
-
-            // 如果走完 100%，则隐藏
-            if (progress >= 100) {
-                clearInterval(loadingBar.interval);
-                loadingBar.style.display = "none";
-            }
-        }, 30); // 3 秒走完 (30ms * 100 = 3000ms)
-    }
-
-    /**
-     * 提前完成进度条并隐藏
-     */
-    function completeLoadingBar() {
-        const loadingBar = document.getElementById('loadingBar');
-        clearInterval(loadingBar.interval);
-        loadingBar.style.width = "100%";
-        
-        setTimeout(() => {
-            loadingBar.style.display = "none";
-        }, 500); // 0.5秒后隐藏
-    }
-
-    /**
-     * 停止随机字符串的显示
-     */
-    function stopRandomString() {
-        document.getElementById('randomStringDisplay').innerText = ''; // 清空显示的字符串
-    }
-
-}).catch(error => {
-    console.error('加载 mapping.json 失败:', error);
+        toggleButton.classList.toggle('active');
+        toggleButton.setAttribute('aria-expanded', !isExpanded);
+    });
 });
+
+// 显示搜索结果
+function displayResults(data) {
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = '';
+
+    if (data.status !== 'success' || data.count === 0) {
+        resultsDiv.innerHTML = '<div class="result-card">未找到匹配结果</div>';
+        return;
+    }
+
+    data.data.forEach(result => {
+        const episodeMatch = result.filename.match(/\[P(\d+)\]/);
+        const timeMatch = result.timestamp.match(/^(\d+)m(\d+)s$/);
+        
+        let imageUrl = '';
+        if (episodeMatch && timeMatch) {
+            const episodeNum = parseInt(episodeMatch[1], 10);
+            const totalSeconds = parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
+            imageUrl = `frames/${episodeNum}/frame_${totalSeconds}.webp`;
+        }
+
+        const cleanFilename = result.filename
+            .replace(/\[P(\d+)\].*?\s+/, 'P$1 ')
+            .replace(/\.json$/, '')
+            .trim();
+
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        
+        // 修改图片处理逻辑
+        const cardContent = `
+            <div class="result-content">
+                <h3><span class="tag">${cleanFilename.match(/P\d+/)}</span>${cleanFilename.replace(/P\d+/, '').trim()}</h3>
+                <p class="result-text">${result.text}</p>
+                <p class="result-meta">${result.timestamp} · 匹配度 ${parseFloat(result.match_ratio).toFixed(1)}% · 相似度 ${(result.similarity * 100).toFixed(1)}%</p>
+            </div>
+        `;
+
+        if (imageUrl) {
+            const img = new Image();
+            img.src = imageUrl;
+            img.className = 'preview-frame';
+            img.loading = 'lazy';
+            
+            img.onerror = () => {
+                card.innerHTML = cardContent; // 加载失败时只显示内容
+            };
+            
+            img.onload = () => {
+                card.innerHTML = img.outerHTML + cardContent; // 加载成功时显示图片和内容
+            };
+        }
+        
+        card.innerHTML = cardContent; // 先显示内容
+
+        card.addEventListener('click', () => handleCardClick(result));
+        resultsDiv.appendChild(card);
+    });
+}
+
+// 根据 filename 查找对应的播放 URL
+function getEpisodeUrl(filename) {
+    for (let key in mapping) {
+        if (mapping[key] === filename) {
+            return key;
+        }
+    }
+    return null; // 没有找到对应的 URL
+}
+
+/**
+ * 启动进度条，预计 3 秒走完
+ */
+function startLoadingBar() {
+    const loadingBar = document.getElementById('loadingBar');
+    loadingBar.style.width = "0%";
+    loadingBar.style.display = "block";
+    
+    let progress = 0;
+    loadingBar.interval = setInterval(() => {
+        progress += 2; // 加快进度条速度
+        if (progress > 90) progress = 90; // 最多到90%
+        loadingBar.style.width = `${progress}%`;
+    }, 30);
+}
+
+/**
+ * 提前完成进度条并隐藏
+ */
+function completeLoadingBar() {
+    const loadingBar = document.getElementById('loadingBar');
+    clearInterval(loadingBar.interval);
+    loadingBar.style.width = "100%";
+    
+    setTimeout(() => {
+        loadingBar.style.display = "none";
+        loadingBar.style.width = "0%";
+    }, 300);
+}
