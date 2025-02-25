@@ -5,18 +5,29 @@
             "src": "api/index.py",
             "use": "@vercel/python",
             "config": {
-                "runtime": "python3.9"
+                "runtime": "python3.9",
+                "includeFiles": {
+                    "api/**": true
+                }
             }
+        },
+        {
+            "src": "Web/**/*",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
         {
-            "src": "/(.*)",
+            "src": "/search",
+            "dest": "api/index.py",
             "headers": {
-                "cache-control": "no-cache, no-store, must-revalidate",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Access-Control-Allow-Origin": "*"
-            },
-            "dest": "api/index.py"
+            }
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/Web/$1"
         }
     ]
 }
