@@ -24,6 +24,7 @@ html {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -245,7 +246,16 @@ input:focus {
     border-radius: var(--radius);
     flex-shrink: 0;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+    cursor: pointer;
+}
+
+.preview-frame:hover {
+    transform: scale(1.02);
+}
+
+.preview-frame:active {
+    transform: scale(0.98);
 }
 
 .preview-frame.loaded {
