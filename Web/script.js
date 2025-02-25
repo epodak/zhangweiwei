@@ -1,15 +1,80 @@
 let mapping = {};
 
-async function extractFrame(folderId, frameNum, baseDir = '') {
-    const groupIndex = Math.floor((folderId - 1) / 10);
+
+const indexCache = {
+    data: new Map(),
+    preloadQueue: new Set(),
+    preloadPromises: new Map(),
     
-    try {
+    async get(groupIndex, baseDir) {
+        const cacheKey = `${baseDir}/${groupIndex}`;
+        if (this.data.has(cacheKey)) {
+            return this.data.get(cacheKey);
+        }
+
+        if(this.preloadPromises.has(cacheKey)) {
+            return this.preloadPromises.get(cacheKey);
+        }
+
+        try {
+            const indexData = await this._fetchIndex(groupIndex, baseDir);
+            return indexData;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    async preload(groupIndex, baseDir) {
+        const cacheKey = `${baseDir}/${groupIndex}`;
+        if (this.data.has(cacheKey) || this.preloadQueue.has(cacheKey)) {
+            return;
+        }
+
+        this.preloadQueue.add(cacheKey);
         
+        const promise = this._fetchIndex(groupIndex, baseDir);
+        this.preloadPromises.set(cacheKey, promise);
+
+        try {
+            await promise;
+        } catch (error) {
+            console.error(`[IndexCache] Failed to preload ${groupIndex}.index:`, error);
+        } finally {
+            this.preloadQueue.delete(cacheKey);
+            this.preloadPromises.delete(cacheKey);
+        }
+    },
+
+    async _fetchIndex(groupIndex, baseDir) {
+        const cacheKey = `${baseDir}/${groupIndex}`;
         const indexResponse = await fetch(`${baseDir}/${groupIndex}.index`);
         if (!indexResponse.ok) {
             throw new Error(`${indexResponse.status} ${indexResponse.statusText}`);
         }
-        const indexData = await indexResponse.arrayBuffer();
+        
+        const compressedData = await indexResponse.arrayBuffer();
+        
+        const ds = new DecompressionStream('gzip');
+        const decompressedStream = new Response(compressedData).body.pipeThrough(ds);
+        const decompressedData = await new Response(decompressedStream).arrayBuffer();
+
+        this.data.set(cacheKey, decompressedData);
+        return decompressedData;
+    }
+};
+
+const watermarkImage = new Image();
+watermarkImage.src = 'watermark.png';
+let watermarkLoaded = false;
+watermarkImage.onload = () => {
+    watermarkLoaded = true;
+};
+
+async function extractFrame(folderId, frameNum, baseDir = '') {
+    const groupIndex = Math.floor((folderId - 1) / 10);
+    
+    try {
+        const indexData = await indexCache.get(groupIndex, baseDir);
         const dataView = new DataView(indexData);
         let offset = 0;
         
@@ -63,16 +128,17 @@ async function extractFrame(folderId, frameNum, baseDir = '') {
         return new Blob([data], {type: 'image/webp'});
         
     } catch (error) {
+        console.error(`[Frame] Failed to extract frame P${folderId}/${frameNum}:`, error);
         throw error;
     }
 } 
 async function loadMapping() {
     try {
         const response = await fetch('./mapping.json');
-        if (!response.ok) throw new Error("无法加载 mapping.json");
+        if (!response.ok) throw new Error("Failed to load mapping.json");
         return await response.json();
     } catch (error) {
-        console.error(error);
+        console.error('[Mapping] Failed to load:', error);
         return {};
     }
 }
@@ -143,7 +209,7 @@ class SearchController {
         
         try {
             const response = await fetch(url);
-            if (!response.ok) throw new Error("网络请求失败");
+            if (!response.ok) throw new Error("Network request failed");
             
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -157,7 +223,7 @@ class SearchController {
                 buffer += decoder.decode(value, {stream: true});
                 totalBytes += value.length;
                 
-                const progress = Math.min(90, (totalBytes / response.headers.get('Content-Length')) * 100);
+                const progress = Math.min(95, (totalBytes / response.headers.get('Content-Length')) * 100 * 1.2);
                 document.getElementById('loadingBar').style.width = `${progress}%`;
                 
                 let lines = buffer.split('\n');
@@ -171,7 +237,7 @@ class SearchController {
                             AppState.cachedResults.push(result);
                         }
                     } catch (e) {
-                        console.warn('解析单个结果失败:', e);
+                        console.error('[Search] Failed to parse single result:', e);
                     }
                 }
             }
@@ -183,7 +249,7 @@ class SearchController {
                         AppState.cachedResults.push(result);
                     }
                 } catch (e) {
-                    console.warn('解析最后的结果失败:', e);
+                    console.error('[Search] Failed to parse final result:', e);
                 }
             }
             
@@ -207,7 +273,7 @@ class SearchController {
                 };
             }
         } catch (error) {
-            console.error('搜索错误:', error);
+            console.error('[Search] Failed:', error);
             throw error;
         } finally {
             completeLoadingBar();
@@ -245,7 +311,7 @@ async function handleSearch(mapping) {
         initializeScrollListener();
 
     } catch (error) {
-        console.error('搜索失败:', error);
+        console.error('[Search] Failed:', error);
         document.getElementById('results').innerHTML = '<div class="result-card">搜索失败，请稍后重试</div>';
     } finally {
         UIController.updateSearchFormPosition(false);
@@ -256,6 +322,12 @@ async function initializeApp() {
     try {
         mapping = await loadMapping();
         initializeScrollListener();
+
+        for (let i = 0; i <= 26; i++) {
+            indexCache.preload(i, 'https://vv.noxylva.org').catch(error => {
+                console.error(`[IndexCache] Failed to preload ${i}.index:`, error);
+            });
+        }
         
         document.getElementById('searchForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -284,7 +356,7 @@ async function initializeApp() {
 
         
     } catch (error) {
-        console.error('初始化失败:', error);
+        console.error('[App] Initialization failed:', error);
     }
 }
 
@@ -326,7 +398,8 @@ function displayResults(data, append = false) {
         resultsDiv.innerHTML = '';
         AppState.displayedCount = 0;
     }
-    if (data['data'][0]['count'] === 0) {
+    
+    if (!data.data || data.data.length === 0 || data.data[0].count === 0) {
         if (!append) {
             const query = document.getElementById('query').value.trim();
             const minRatio = parseFloat(document.getElementById('minRatio').value).toFixed(1);
@@ -348,6 +421,8 @@ function displayResults(data, append = false) {
         return;
     }
 
+    const fragment = document.createDocumentFragment();
+    
     const startIndex = AppState.displayedCount;
     const endIndex = Math.min(startIndex + AppState.itemsPerPage, data.data.length);
     const newResults = data.data.slice(startIndex, endIndex);
@@ -356,9 +431,14 @@ function displayResults(data, append = false) {
         AppState.hasMoreResults = false;
     }
 
-    newResults.forEach(async result => {
-        if (!result || typeof result !== 'object') return;
-
+    const cards = newResults.map(result => {
+        if (!result || typeof result !== 'object') return null;
+        
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.addEventListener('click', () => handleCardClick(result));
+        card.style.cursor = 'pointer';
+        
         const episodeMatch = result.filename ? result.filename.match(/\[P(\d+)\]/) : null;
         const timeMatch = result.timestamp ? result.timestamp.match(/^(\d+)m(\d+)s$/) : null;
         
@@ -369,13 +449,9 @@ function displayResults(data, append = false) {
                 .trim()
             : '';
 
-        const card = document.createElement('div');
-        card.className = 'result-card';
-        
-        const episodeTag = cleanFilename.match(/P\d+/);
         const cardContent = `
             <div class="result-content">
-                <h3>${episodeTag ? `<span class="tag">${episodeTag[0]}</span>${cleanFilename.replace(/P\d+/, '').trim()}` : cleanFilename}</h3>
+                <h3>${episodeMatch ? `<span class="tag">${episodeMatch[1]}</span>${cleanFilename.replace(/P\d+/, '').trim()}` : cleanFilename}</h3>
                 <p class="result-text">${result.text || ''}</p>
                 ${result.timestamp ? `
                 <p class="result-meta">
@@ -387,38 +463,18 @@ function displayResults(data, append = false) {
         `;
 
         card.innerHTML = cardContent;
-        resultsDiv.appendChild(card);
+        return card;
+    }).filter(Boolean);
 
-        if (episodeMatch && timeMatch) {
-            const episodeNum = parseInt(episodeMatch[1], 10);
-            const minutes = parseInt(timeMatch[1]);
-            const seconds = parseInt(timeMatch[2]);
-            const totalSeconds = minutes * 60 + seconds;
-            
-            try {
-                const imageBlob = await extractFrame(episodeNum, totalSeconds, 'https://vv.noxylva.org');
-                const imageUrl = URL.createObjectURL(imageBlob);
-                
-                const img = new Image();
-                img.src = imageUrl;
-                img.className = 'preview-frame';
-                img.decoding = 'async';
-                
-                img.onload = () => {
-                    card.insertBefore(img, card.firstChild);
-                    URL.revokeObjectURL(imageUrl);
-                };
+    cards.forEach(card => fragment.appendChild(card));
 
-                img.onerror = () => {
-                    console.warn('图片加载失败:', imageUrl);
-                    URL.revokeObjectURL(imageUrl);
-                };
-            } catch (error) {
-                console.error('提取帧失败:', error);
-            }
-        }
+    resultsDiv.appendChild(fragment);
 
-        card.addEventListener('click', () => handleCardClick(result));
+    requestAnimationFrame(() => {
+        cards.forEach((card, index) => {
+            const result = newResults[index];
+            loadPreviewImage(card, result);
+        });
     });
 
     AppState.displayedCount = endIndex;
@@ -427,6 +483,80 @@ function displayResults(data, append = false) {
     const trigger = document.getElementById('scroll-trigger');
     if (trigger) {
         resultsDiv.appendChild(trigger);
+    }
+}
+
+
+async function loadPreviewImage(card, result) {
+    const episodeMatch = result.filename?.match(/\[P(\d+)\]/);
+    const timeMatch = result.timestamp?.match(/^(\d+)m(\d+)s$/);
+    
+    if (!episodeMatch || !timeMatch) return;
+    
+    const episodeNum = parseInt(episodeMatch[1], 10);
+    const minutes = parseInt(timeMatch[1]);
+    const seconds = parseInt(timeMatch[2]);
+    const totalSeconds = minutes * 60 + seconds;
+    
+    const imgContainer = document.createElement('div');
+    imgContainer.className = 'preview-frame-container';
+    
+    const placeholder = document.createElement('div');
+    placeholder.className = 'preview-frame-placeholder';
+    imgContainer.appendChild(placeholder);
+    
+    card.insertBefore(imgContainer, card.firstChild);
+    
+    try {
+        const imageBlob = await extractFrame(episodeNum, totalSeconds, 'https://vv.noxylva.org');
+        const imageUrl = URL.createObjectURL(imageBlob);
+        
+        const img = new Image();
+        img.src = imageUrl;
+        img.className = 'preview-frame';
+        img.decoding = 'async';
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.className = 'preview-frame';
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            if (watermarkLoaded) {
+                const watermarkScale = canvas.width * 0.25 / watermarkImage.width;
+                const watermarkWidth = watermarkImage.width * watermarkScale;
+                const watermarkHeight = watermarkImage.height * watermarkScale;
+                
+                ctx.drawImage(
+                    watermarkImage,
+                    canvas.width - watermarkWidth - 5,
+                    canvas.height - watermarkHeight - 5,
+                    watermarkWidth,
+                    watermarkHeight
+                );
+            }
+            
+            imgContainer.appendChild(canvas);
+            setTimeout(() => {
+                canvas.classList.add('loaded');
+                placeholder.style.opacity = '0';
+                setTimeout(() => placeholder.remove(), 300);
+            }, 50);
+            
+            URL.revokeObjectURL(imageUrl);
+        };
+
+        img.onerror = () => {
+            console.error('[Preview] Failed to load image:', imageUrl);
+            imgContainer.remove();
+            URL.revokeObjectURL(imageUrl);
+        };
+    } catch (error) {
+        console.error('[Preview] Failed to extract frame:', error);
+        imgContainer.remove();
     }
 }
 
@@ -457,13 +587,13 @@ function startLoadingBar() {
             return;
         }
         
-        progress += 0.2;
-        if (progress > 90) {
+        progress += 0.5;
+        if (progress > 95) {
             clearInterval(loadingBar.interval);
-            progress = 90;
+            progress = 95;
         }
         loadingBar.style.width = `${progress}%`;
-    }, 50);
+    }, 30);
 }
 
 function completeLoadingBar() {
