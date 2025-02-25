@@ -151,7 +151,8 @@ const AppState = {
     itemsPerPage: 20,
     hasMoreResults: true,
     cachedResults: [],
-    displayedCount: 0
+    displayedCount: 0,
+    showWatermark: true
 };
 
 
@@ -389,6 +390,33 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleButton.classList.toggle('active');
         toggleButton.setAttribute('aria-expanded', !isExpanded);
     });
+
+    const watermarkToggle = document.getElementById('watermarkToggle');
+    watermarkToggle.addEventListener('change', () => {
+        AppState.showWatermark = watermarkToggle.checked;
+        
+        if (window.canvasRenderQueue) {
+            window.canvasRenderQueue.forEach(canvas => {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(canvas.originalCanvas, 0, 0);
+                
+                if (AppState.showWatermark && watermarkLoaded) {
+                    const watermarkScale = canvas.width * 0.25 / watermarkImage.width;
+                    const watermarkWidth = watermarkImage.width * watermarkScale;
+                    const watermarkHeight = watermarkImage.height * watermarkScale;
+                    
+                    ctx.drawImage(
+                        watermarkImage,
+                        canvas.width - watermarkWidth - 5,
+                        canvas.height - watermarkHeight - 5,
+                        watermarkWidth,
+                        watermarkHeight
+                    );
+                }
+            });
+        }
+    });
 });
 
 function displayResults(data, append = false) {
@@ -517,31 +545,49 @@ async function loadPreviewImage(card, result) {
         img.decoding = 'async';
         
         img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            canvas.className = 'preview-frame';
+            const originalCanvas = document.createElement('canvas');
+            originalCanvas.width = img.width;
+            originalCanvas.height = img.height;
+            const originalCtx = originalCanvas.getContext('2d');
+            originalCtx.drawImage(img, 0, 0);
             
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
+            const displayCanvas = document.createElement('canvas');
+            displayCanvas.width = img.width;
+            displayCanvas.height = img.height;
+            displayCanvas.className = 'preview-frame';
             
-            if (watermarkLoaded) {
-                const watermarkScale = canvas.width * 0.25 / watermarkImage.width;
-                const watermarkWidth = watermarkImage.width * watermarkScale;
-                const watermarkHeight = watermarkImage.height * watermarkScale;
+            displayCanvas.originalCanvas = originalCanvas;
+            
+            const renderCanvas = () => {
+                const ctx = displayCanvas.getContext('2d');
+                ctx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                ctx.drawImage(originalCanvas, 0, 0);
                 
-                ctx.drawImage(
-                    watermarkImage,
-                    canvas.width - watermarkWidth - 5,
-                    canvas.height - watermarkHeight - 5,
-                    watermarkWidth,
-                    watermarkHeight
-                );
-            }
+                if (watermarkLoaded && AppState.showWatermark) {
+                    const watermarkScale = displayCanvas.width * 0.25 / watermarkImage.width;
+                    const watermarkWidth = watermarkImage.width * watermarkScale;
+                    const watermarkHeight = watermarkImage.height * watermarkScale;
+                    
+                    ctx.drawImage(
+                        watermarkImage,
+                        displayCanvas.width - watermarkWidth - 5,
+                        displayCanvas.height - watermarkHeight - 5,
+                        watermarkWidth,
+                        watermarkHeight
+                    );
+                }
+            };
             
-            imgContainer.appendChild(canvas);
+            renderCanvas();
+            
+            if (!window.canvasRenderQueue) {
+                window.canvasRenderQueue = new Set();
+            }
+            window.canvasRenderQueue.add(displayCanvas);
+            
+            imgContainer.appendChild(displayCanvas);
             setTimeout(() => {
-                canvas.classList.add('loaded');
+                displayCanvas.classList.add('loaded');
                 placeholder.style.opacity = '0';
                 setTimeout(() => placeholder.remove(), 300);
             }, 50);

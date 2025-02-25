@@ -635,3 +635,99 @@ button {
         background-position: 200% 0;
     }
 }
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 32px;
+    cursor: pointer;
+    user-select: none;
+    height: 24px;
+}
+
+.checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 18px;
+    width: 18px;
+    background-color: var(--background);
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.checkbox-container:hover input ~ .checkmark {
+    border-color: var(--primary);
+    transform: translateY(-50%) scale(1.05);
+}
+
+.checkbox-container input:checked ~ .checkmark {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-50%) scale(1.05);
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 4.5px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid var(--background);
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+    display: block;
+    animation: checkmark 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.checkbox-row {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+}
+
+.checkbox-label {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    transition: color 0.2s ease;
+    line-height: 1;
+    padding-top: 1px;
+}
+
+.checkbox-container:hover .checkbox-label {
+    color: var(--primary);
+}
+
+@keyframes checkmark {
+    0% {
+        opacity: 0;
+        transform: rotate(45deg) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: rotate(45deg) scale(1);
+    }
+}
+
+.checkbox-container:active .checkmark {
+    transform: translateY(-50%) scale(0.95);
+}
