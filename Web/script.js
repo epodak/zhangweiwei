@@ -1,5 +1,71 @@
 let mapping = {};
 
+async function extractFrame(folderId, frameNum, baseDir = '') {
+    const groupIndex = Math.floor((folderId - 1) / 10);
+    
+    try {
+        
+        const indexResponse = await fetch(`${baseDir}/${groupIndex}.index`);
+        if (!indexResponse.ok) {
+            throw new Error(`${indexResponse.status} ${indexResponse.statusText}`);
+        }
+        const indexData = await indexResponse.arrayBuffer();
+        const dataView = new DataView(indexData);
+        let offset = 0;
+        
+        const gridW = dataView.getUint32(offset, true); offset += 4;
+        const gridH = dataView.getUint32(offset, true); offset += 4;
+        
+        const folderCount = dataView.getUint32(offset, true); offset += 4;
+        offset += folderCount * 4;
+        const fileCount = dataView.getUint32(offset, true); offset += 4;
+    
+        let left = 0;
+        let right = fileCount - 1;
+        let startOffset = null;
+        let endOffset = null;
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const recordOffset = offset + mid * 16;
+            
+            const currFolder = dataView.getUint32(recordOffset, true);
+            const currFrame = dataView.getUint32(recordOffset + 4, true);
+            const currFileOffset = Number(dataView.getBigUint64(recordOffset + 8, true));
+            
+            if (currFolder === folderId && currFrame === frameNum) {
+                startOffset = currFileOffset;
+                if (mid < fileCount - 1) {
+                    endOffset = Number(dataView.getBigUint64(recordOffset + 24, true));
+                }
+                break;
+            } else if (currFolder < folderId || (currFolder === folderId && currFrame < frameNum)) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        if (startOffset === null) {
+            throw new Error();
+        }
+        
+        const response = await fetch(`${baseDir}/${groupIndex}.webp`, {
+            headers: {
+                'Range': `bytes=${startOffset}-${endOffset ? endOffset - 1 : ''}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.blob();
+        return new Blob([data], {type: 'image/webp'});
+        
+    } catch (error) {
+        throw error;
+    }
+} 
 async function loadMapping() {
     try {
         const response = await fetch('./mapping.json');
@@ -290,21 +356,12 @@ function displayResults(data, append = false) {
         AppState.hasMoreResults = false;
     }
 
-    newResults.forEach(result => {
+    newResults.forEach(async result => {
         if (!result || typeof result !== 'object') return;
 
         const episodeMatch = result.filename ? result.filename.match(/\[P(\d+)\]/) : null;
         const timeMatch = result.timestamp ? result.timestamp.match(/^(\d+)m(\d+)s$/) : null;
         
-        let imageUrl = '';
-        if (episodeMatch && timeMatch) {
-            const episodeNum = parseInt(episodeMatch[1], 10);
-            const minutes = parseInt(timeMatch[1]);
-            const seconds = parseInt(timeMatch[2]);
-            const totalSeconds = minutes * 60 + seconds;
-            imageUrl = `frames/${episodeNum}/frame_${totalSeconds}.webp`;
-        }
-
         const cleanFilename = result.filename
             ? result.filename
                 .replace(/\[P(\d+)\].*?\s+/, 'P$1 ')
@@ -332,20 +389,33 @@ function displayResults(data, append = false) {
         card.innerHTML = cardContent;
         resultsDiv.appendChild(card);
 
-        if (imageUrl) {
-            const img = new Image();
-            img.src = imageUrl;
-            img.className = 'preview-frame';
-            img.loading = 'lazy';
-            img.decoding = 'async';
+        if (episodeMatch && timeMatch) {
+            const episodeNum = parseInt(episodeMatch[1], 10);
+            const minutes = parseInt(timeMatch[1]);
+            const seconds = parseInt(timeMatch[2]);
+            const totalSeconds = minutes * 60 + seconds;
             
-            img.onload = () => {
-                card.insertBefore(img, card.firstChild);
-            };
+            try {
+                const imageBlob = await extractFrame(episodeNum, totalSeconds, 'https://vv.noxylva.org');
+                const imageUrl = URL.createObjectURL(imageBlob);
+                
+                const img = new Image();
+                img.src = imageUrl;
+                img.className = 'preview-frame';
+                img.decoding = 'async';
+                
+                img.onload = () => {
+                    card.insertBefore(img, card.firstChild);
+                    URL.revokeObjectURL(imageUrl);
+                };
 
-            img.onerror = () => {
-                console.warn('图片加载失败:', imageUrl);
-            };
+                img.onerror = () => {
+                    console.warn('图片加载失败:', imageUrl);
+                    URL.revokeObjectURL(imageUrl);
+                };
+            } catch (error) {
+                console.error('提取帧失败:', error);
+            }
         }
 
         card.addEventListener('click', () => handleCardClick(result));
