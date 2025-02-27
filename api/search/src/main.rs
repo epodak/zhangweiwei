@@ -49,37 +49,94 @@ struct SearchParams {
 fn default_min_ratio() -> f64 { 50.0 }
 fn default_min_similarity() -> f64 { 0.0 }
 
-fn partial_ratio(str1: &str, str2: &str) -> f64 {
+fn lcs_ratio(str1: &str, str2: &str) -> f64 {
     let str1_lower = str1.to_lowercase();
     let str2_lower = str2.to_lowercase();
-
-    if str1_lower == str2_lower || str2_lower.contains(&str1_lower) || str1_lower.contains(&str2_lower) {
-        return 100.0;
-    }
-
+    
     if str1_lower.is_empty() || str2_lower.is_empty() {
         return 0.0;
     }
 
-    let (shorter, longer) = if str1_lower.chars().count() > str2_lower.chars().count() {
-        (str2_lower, str1_lower)
-    } else {
-        (str1_lower, str2_lower)
-    };
+    let str1_chars: Vec<char> = str1_lower.chars().collect();
+    let str2_chars: Vec<char> = str2_lower.chars().collect();
+    let m = str1_chars.len();
+    let n = str2_chars.len();
+    
+    // 使用动态规划计算LCS
+    let mut dp = vec![vec![0; n + 1]; m + 1];
+    
+    for i in 1..=m {
+        for j in 1..=n {
+            if str1_chars[i-1] == str2_chars[j-1] {
+                dp[i][j] = dp[i-1][j-1] + 1;
+            } else {
+                dp[i][j] = dp[i-1][j].max(dp[i][j-1]);
+            }
+        }
+    }
+    
+    let lcs_length = dp[m][n];
+    (lcs_length as f64 / m as f64) * 100.0
+}
 
-    let shorter_len = shorter.chars().count();
-    let longer_len = longer.chars().count();
+fn find_non_overlapping_matches(text: &str, pattern: &str) -> Vec<(usize, usize)> {
+    let text = text.to_lowercase();
+    let pattern = pattern.to_lowercase();
+    
+    let mut matches = Vec::new();
+    let mut start_pos = 0;
+    
+    while let Some(pos) = text[start_pos..].find(&pattern) {
+        let abs_pos = start_pos + pos;
+        matches.push((abs_pos, abs_pos + pattern.len() - 1));
+        start_pos = abs_pos + 1;
+    }
+    
+    matches
+}
 
-    (0..=longer_len.saturating_sub(shorter_len))
-        .map(|i| {
-            let window = longer.chars().skip(i).take(shorter_len);
-            let matches = shorter.chars()
-                .zip(window)
-                .filter(|(a, b)| a == b)
-                .count();
-            (matches as f64 / shorter_len as f64) * 100.0
-        })
-        .fold(0.0, f64::max)
+fn multi_word_lcs_ratio(query_words: &[String], text: &str) -> f64 {
+    let text = text.to_lowercase();
+    let total_query_length: usize = query_words.iter().map(|w| w.len()).sum();
+    
+    let mut used_chars = vec![false; text.len()];
+    let mut total_matched = 0;
+    
+    for word in query_words {
+        let word_lower = word.to_lowercase();
+        let mut found_match = false;
+        
+        let mut start_pos = 0;
+        while let Some(pos) = text[start_pos..].find(&word_lower) {
+            let abs_pos = start_pos + pos;
+            let end_pos = abs_pos + word_lower.len();
+            
+            let mut can_use = true;
+            for i in abs_pos..end_pos {
+                if used_chars[i] {
+                    can_use = false;
+                    break;
+                }
+            }
+            
+            if can_use {
+                for i in abs_pos..end_pos {
+                    used_chars[i] = true;
+                }
+                total_matched += word_lower.len();
+                found_match = true;
+                break;
+            }
+            
+            start_pos = abs_pos + 1;
+        }
+        
+        if !found_match {
+            continue;
+        }
+    }
+    
+    (total_matched as f64 / total_query_length as f64) * 100.0
 }
 
 async fn search_json_files(
@@ -90,25 +147,15 @@ async fn search_json_files(
     max_results: Option<i32>,
 ) -> Vec<(String, String, f64, String, f64)> {
     let query = query.to_lowercase();
-    let query = Arc::new(query);
     let has_spaces = query.contains(' ') || query.contains("%20");
-    let query_words: Arc<Vec<String>> = Arc::new(
-        if has_spaces {
-            query.replace("%20", " ")
-                .split_whitespace()
-                .map(String::from)
-                .collect()
-        } else {
-            vec![(*query).clone()]
-        }
-    );
-
-    let patterns: Vec<String> = if has_spaces {
-        query_words.iter().map(|s| s.to_lowercase()).collect()
+    let query_words: Vec<String> = if has_spaces {
+        query.replace("%20", " ")
+            .split_whitespace()
+            .map(String::from)
+            .collect()
     } else {
-        vec![(*query).to_string()]
+        vec![query.clone()]
     };
-    let ac = Arc::new(AhoCorasick::new(&patterns).unwrap());
 
     let entries: Vec<_> = match fs::read_dir(folder_path) {
         Ok(entries) => entries.filter_map(Result::ok)
@@ -119,8 +166,6 @@ async fn search_json_files(
 
     let results: Vec<_> = entries.par_iter()
         .filter_map(|entry| {
-            let ac = Arc::clone(&ac);
-            let query_words = Arc::clone(&query_words);
             let filename = entry.file_name().to_string_lossy().into_owned();
             
             let content = fs::read_to_string(entry.path()).ok()?;
@@ -129,30 +174,10 @@ async fn search_json_files(
             let file_results: Vec<_> = data.par_iter()
                 .filter(|item| item.similarity >= min_similarity)
                 .filter_map(|item| {
-                    let text_lower = item.text.to_lowercase();
-                    
-                    let mut matches = ac.find_iter(&text_lower);
-                    
                     let match_ratio = if has_spaces {
-                        let mut found_patterns = vec![false; patterns.len()];
-                        for mat in matches {
-                            found_patterns[mat.pattern().as_usize()] = true;
-                        }
-                        
-                        if !found_patterns.iter().all(|&x| x) {
-                            return None;
-                        }
-                        
-                        query_words.iter()
-                            .map(|word| partial_ratio(word, &item.text))
-                            .min_by(|a, b| a.partial_cmp(b).unwrap())
-                            .unwrap_or(0.0)
+                        multi_word_lcs_ratio(&query_words, &item.text)
                     } else {
-                        if matches.next().is_some() {
-                            100.0
-                        } else {
-                            partial_ratio(&*query, &item.text)
-                        }
+                        lcs_ratio(&query, &item.text)
                     };
 
                     if match_ratio >= min_ratio {

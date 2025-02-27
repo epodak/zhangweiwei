@@ -2,15 +2,14 @@ import os
 import json
 import logging
 import subprocess
-import jieba
 from flask import Flask, request, jsonify, send_file
 from typing import List, Tuple
 
 logging.basicConfig(level=logging.DEBUG)
 
+
+
 app = Flask(__name__)
-
-
 @app.route('/search', methods=['GET'])
 def search():
     try:
@@ -18,50 +17,80 @@ def search():
         min_ratio = request.args.get('min_ratio', '50')
         min_similarity = request.args.get('min_similarity', '0.5')
 
-        # 对查询进行分词
-        segmented_query = ' '.join(jieba.cut(query))
-        
-        query_string = f"query={segmented_query}"
+        # 添加参数验证
+        if not query:
+            return jsonify({
+                "status": "error",
+                "message": "搜索关键词不能为空"
+            }), 400
+
+        try:
+            min_ratio = float(min_ratio)
+            min_similarity = float(min_similarity)
+            if not (0 <= min_ratio <= 100) or not (0 <= min_similarity <= 1):
+                raise ValueError()
+        except ValueError:
+            return jsonify({
+                "status": "error",
+                "message": "参数格式错误"
+            }), 400
+
+        query_string = f"query={query}"
         query_string += f"&min_ratio={min_ratio}"
         query_string += f"&min_similarity={min_similarity}"
 
         def generate():
-            rust_process = subprocess.Popen(
-                ['./api/subtitle_search_api'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1  # 行缓冲
-            )
-            
-            rust_process.stdin.write(query_string + '\n')
-            rust_process.stdin.flush()
-            
-            # 逐行读取并返回数据
-            first_item = True
-            while True:
-                line = rust_process.stdout.readline()
-                if not line:
-                    break
-                    
-                if not first_item:
-                    yield '\n'
-                first_item = False
+            try:
+                rust_process = subprocess.Popen(
+                    ['./api/subtitle_search_api'],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1
+                )
                 
-                yield line.strip()
-            
-            rust_process.terminate()
+                rust_process.stdin.write(query_string + '\n')
+                rust_process.stdin.flush()
+                
+                first_item = True
+                while True:
+                    line = rust_process.stdout.readline()
+                    if not line:
+                        break
+                        
+                    if not first_item:
+                        yield '\n'
+                    first_item = False
+                    
+                    yield line.strip()
+            except Exception as e:
+                logging.error(f"Stream error: {e}")
+                yield json.dumps({
+                    "status": "error",
+                    "message": "搜索过程中发生错误"
+                })
+            finally:
+                try:
+                    rust_process.terminate()
+                except:
+                    pass
 
-        return app.response_class(generate(), mimetype='application/json')
+        return app.response_class(
+            generate(),
+            mimetype='application/json',
+            headers={
+                'X-Accel-Buffering': 'no',
+                'Cache-Control': 'no-cache'
+            }
+        )
 
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return jsonify({
             "status": "error",
-            "error": str(e)
+            "message": "服务器内部错误"
         }), 500
-
 
 
 application = app
