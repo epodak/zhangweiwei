@@ -5,7 +5,9 @@
 > [!CAUTION]
 > 本项目仅供娱乐，请合理使用。
 
------
+## 致谢
+
+&emsp;&emsp;感谢[wen999di](https://github.com/wen999di)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Awen999di)，大幅提高了人脸检测准确率和字幕识别准确率。感谢[undef-i](https://github.com/undef-i)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Aundef-i)，大幅提高了字幕检索速度，并且添加了GPU支持，大幅减少了新版本的人脸识别和字幕识别所需的时间。
 
 ## 项目简介
 
@@ -20,6 +22,14 @@
 </p>
 
 &emsp;&emsp;本项目主要用于识别vv出现的视频片段（主要针对《这就是中国》节目，后续可能会增加其他视频源）及对应的字幕，并输出为json文件。
+
+## Web网页端使用说明
+
+&emsp;&emsp;访问[vv.cicada000.work](https://vv.cicada000.work/)即可直接使用网页端的台词搜索功能，搜索具有一定的模糊匹配能力。在搜索框内搜索关键词即可匹配含有该关键词的台词。展开高级选项可调整文本匹配度（0-100，默认50）、人脸相似度（0-1，默认0.5）以及是否添加口吧水印。
+
+<center><img src="web_index.png" style="max-height:3000px"></center>
+
+<center><img src="search_result.png" style="max-height:3000px"></center>
 
 ## Python脚本使用说明
 
@@ -49,6 +59,10 @@
 
 `main.py`：主函数，程序入口。
 
+`api`：文件夹，网页API后端代码，API具体用法见下。
+
+`Web`：文件夹，网页前端代码。
+
 ### 运行本项目的说明
 
 > [!TIP]
@@ -58,22 +72,12 @@
 
 如需使用GPU运行（这玩意拿纯CPU运行慢的要死），在下载相关pip库时需下载GPU版本。例如`pip install paddlepaddle`需改为`pip install paddlepaddle-gpu`，使用高版本的CUDA时，则需要下载更高版本的库，可在官网找到[下载命令](https://www.paddlepaddle.org.cn/en/install/quick?docurl=/documentation/docs/en/develop/install/pip/linux-pip_en.html)。
 
-## Web网页端使用说明
-
-&emsp;&emsp;访问[vv.cicada000.work](https://vv.cicada000.work/)即可直接使用网页端的台词搜索功能。在搜索框内搜索关键词即可匹配含有该关键词的台词。其中搜索框后的数字（示例图片及网页默认为98）为识别到的人脸相似度，即识别到画面中的人物和VV相似度高于98%的视频帧的台词会出现在搜索结果中。但是由于该项目的人脸识别在侧脸识别的效果不佳，OCR台词的效果也差强人意，可能会搜索不到全部的结果。
-
-<center><img src="web_index.png" style="max-height:3000px"></center>
-
-<center><img src="search_result.png" style="max-height:3000px"></center>
-
-&emsp;&emsp;如果想使用精确搜索，可以输入多个词组，则会返回同时包含这几个词组的字幕台词。例如上图如果只想搜索到最精确的结果，则将“我看了都乐了”改为“我看了 都乐了”输入即可输出最匹配的一个结果。
-
 ## API使用说明
 
 &emsp;&emsp;API具体请求示例如下：
 
 ```
-https://vvapi.cicada000.work/search?query=测试&min_ratio=50&min_similarity=0.5&max_results=10
+https://vv.cicada000.work/search?query=测试&min_ratio=50&min_similarity=0.5&max_results=10
 ```
 
 参数解释：
@@ -86,7 +90,7 @@ https://vvapi.cicada000.work/search?query=测试&min_ratio=50&min_similarity=0.5
 
 `max_results`：返回的结果最多的个数，如果不添加默认返回全部匹配的结果。
 
-## 未完成功能
+## To-Do List
 
 - [x] 提高人脸识别精度
 - [x] 改进搜索算法
@@ -104,7 +108,3 @@ https://vvapi.cicada000.work/search?query=测试&min_ratio=50&min_similarity=0.5
 [dlib](https://github.com/davisking/dlib)
 
 [BBDown](https://github.com/nilaoda/BBDown)
-
-## 致谢
-
-&emsp;&emsp;感谢[wen999di](https://github.com/wen999di)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Awen999di)，大幅提高了人脸检测准确率和字幕识别准确率。感谢[undef-i](https://github.com/undef-i)及其提交的[PR](https://github.com/Cicada000/VV/issues?q=is%3Apr+author%3Aundef-i)，大幅提高了字幕检索速度，并且添加了GPU支持，大幅减少了新版本的人脸识别和字幕识别所需的时间。
