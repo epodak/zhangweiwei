@@ -77,8 +77,12 @@ class SubtitleSearch:
         embeddings_path = os.path.join(index_dir, 'embeddings.npy')
         entries_path = os.path.join(index_dir, 'entries.json')
         
-        # 保存FAISS索引
-        faiss.write_index(self.index, index_path)
+        # 如果是GPU索引，需要先转换为CPU索引再保存
+        if USE_GPU_SEARCH:
+            cpu_index = faiss.index_gpu_to_cpu(self.index)
+            faiss.write_index(cpu_index, index_path)
+        else:
+            faiss.write_index(self.index, index_path)
         
         # 保存嵌入向量
         np.save(embeddings_path, self.sentence_embeddings)
@@ -102,9 +106,16 @@ class SubtitleSearch:
         embeddings_path = os.path.join(index_dir, 'embeddings.npy')
         entries_path = os.path.join(index_dir, 'entries.json')
         
-        # 加载FAISS索引
-        self.index = faiss.read_index(index_path)
+        # 先加载为CPU索引
+        cpu_index = faiss.read_index(index_path)
         
+        # 如果启用了GPU，将索引转换为GPU版本
+        if USE_GPU_SEARCH:
+            res = faiss.StandardGpuResources()
+            self.index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+        else:
+            self.index = cpu_index
+            
         # 加载嵌入向量
         self.sentence_embeddings = np.load(embeddings_path)
         
