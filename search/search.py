@@ -14,6 +14,7 @@ from rich.table import Table
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from params import USE_GPU_SEARCH, SEARCH_BATCH_SIZE
+from mapping import get_video_url  # 在文件开头添加导入
 
 # 配置日志和控制台
 logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
@@ -296,15 +297,21 @@ if __name__ == "__main__":
                 table.add_column("文本相似度", justify="right", width=10)
                 table.add_column("图像相似度", justify="right", width=10)
                 table.add_column("内容")
+                table.add_column("打开", justify="center", width=8)
                 
                 for idx, result in enumerate(results, 1):
+                    # 获取视频URL
+                    video_url = get_video_url(result["filename"], result["timestamp"])
+                    url_text = "[link]打开[/]" if video_url else "-"
+                    
                     table.add_row(
                         f"[cyan]{idx}[/]",
                         result["filename"],
                         result["timestamp"],
                         f"{result['text_similarity']:.3f}",
                         f"{result['image_similarity']:.3f}",
-                        result["text"]
+                        result["text"],
+                        url_text if not video_url else f"[link={video_url}]打开[/]"
                     )
                 console.print(table)
         except Exception as e:
