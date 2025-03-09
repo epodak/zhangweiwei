@@ -10,7 +10,10 @@ from rich.console import Console
 from rich.prompt import Prompt, FloatPrompt, IntPrompt
 from rich.panel import Panel
 from rich.table import Table
-from rich import print
+
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from params import USE_GPU_SEARCH, SEARCH_BATCH_SIZE
 
 # 配置日志和控制台
 logging.getLogger('sentence_transformers').setLevel(logging.WARNING)
@@ -27,7 +30,8 @@ class SubtitleEntry:
 class SubtitleSearch:
     def __init__(self, subtitle_folder, model_name='BAAI/bge-large-zh-v1.5'):
         self.subtitle_folder = subtitle_folder
-        self.model = SentenceTransformer(model_name)
+        self.use_gpu = USE_GPU_SEARCH
+        self.model = SentenceTransformer(model_name, device='cuda' if self.use_gpu else 'cpu')
         self.entries = []
         self.min_image_similarity = 0.6
         self.search_k = 5
@@ -56,10 +60,14 @@ class SubtitleSearch:
         self.sentence_embeddings = self.model.encode(
             texts,
             show_progress_bar=True,
-            batch_size=1
+            batch_size=SEARCH_BATCH_SIZE
         )
         dimension = self.sentence_embeddings.shape[1]
-        self.index = faiss.IndexFlatL2(dimension)
+        if USE_GPU_SEARCH:
+            res = faiss.StandardGpuResources()
+            self.index = faiss.GpuIndexFlatL2(res, dimension)
+        else:
+            self.index = faiss.IndexFlatL2(dimension)
         self.index.add(self.sentence_embeddings)
 
     def save_index(self, index_dir):
@@ -111,10 +119,9 @@ class SubtitleSearch:
     def search(self, query, k=None):
         if k is None:
             k = self.search_k
-            
         
         search_k = min(k * 30, len(self.entries))
-        query_embedding = self.model.encode([query])
+        query_embedding = self.model.encode([query], batch_size=SEARCH_BATCH_SIZE)  # 使用配置的批处理大小
         distances, indices = self.index.search(query_embedding, search_k)
         
 
