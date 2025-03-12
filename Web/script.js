@@ -301,6 +301,7 @@ class UIController {
 }
 class SearchController {
     static validateSearchInput(query) { return query && query.trim().length > 0 } static async performSearch(query, minRatio, minSimilarity) {
+        // 优先使用本地数据库（如果已加载）
         if (window.subtitleDB && window.subtitleDB.isLoaded) {
             try { 
                 const localResults = await window.subtitleDB.search(query, minRatio, minSimilarity); 
@@ -314,11 +315,14 @@ class SearchController {
                 } else if (localResults && localResults.status === "success" && Array.isArray(localResults.data)) {
                     return localResults;
                 }
-            } catch (error) {}
+            } catch (error) {
+                console.log("本地搜索失败，使用远程API", error);
+            }
         }
         
         const url = `${CONFIG.apiBaseUrl}/search?query=${encodeURIComponent(query)}&min_ratio=${minRatio}&min_similarity=${minSimilarity}`;
         try {
+            console.log("使用远程API搜索:", url);
             const response = await fetch(url);
             if (!response.ok) throw new Error(`API \u8bf7\u6c42\u5931\u8d25: ${response.status} ${response.statusText}`);
         
