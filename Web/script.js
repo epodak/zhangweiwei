@@ -285,7 +285,7 @@ async function loadMapping() {
             await response.json(); try { await dbStorage.setItem("mappings", "mapping", mappingData) } catch (e) { try { localStorage.setItem("mapping", JSON.stringify(mappingData)) } catch (e) { } } return mappingData
     } catch (error) { return {} }
 } const AppState = { isSearching: false, randomStringDisplayed: false, searchResults: [], currentPage: 1, itemsPerPage: 20, hasMoreResults: true, cachedResults: [], displayedCount: 0, showWatermark: true, dbLoaded: false, dbLoading: false };
-const CONFIG = { randomStrings: ["\u63a2\u7d22VV\u7684\u5f00\u6e90\u4e16\u754c", "\u4e3a\u4e1c\u5927\u52a9\u529b", "\u641c\u7d22\u4f60\u60f3\u8981\u7684\u5185\u5bb9"], apiBaseUrl: "" };
+const CONFIG = { randomStrings: ["\u63a2\u7d22VV\u7684\u5f00\u6e90\u4e16\u754c", "\u4e3a\u4e1c\u5927\u52a9\u529b", "\u641c\u7d22\u4f60\u60f3\u8981\u7684\u5185\u5bb9"], apiBaseUrl: "https://vvapi.cicada000.work" };
 class UIController {
     static updateSearchFormPosition(isSearching) { const searchForm = document.getElementById("searchForm"); const randomStringDisplay = document.getElementById("randomStringDisplay"); if (isSearching) { searchForm.classList.add("searching"); if (!AppState.randomStringDisplayed) this.showRandomString() } else { searchForm.classList.remove("searching"); this.clearRandomString() } } static showRandomString() {
         if (!AppState.randomStringDisplayed) {
